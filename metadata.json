@@ -1,0 +1,7 @@
+{
+  "name": "ComicVault AI",
+  "description": "A mobile-first comic book database with AI-powered value assessment and collection reporting.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
