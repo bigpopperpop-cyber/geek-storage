@@ -17,4 +17,4 @@ export interface CollectionItem {
   dateAdded: string;
 }
 
-export type AppView = 'collection' | 'add' | 'reports';
+export type AppView = 'collection' | 'add' | 'reports' | 'help';

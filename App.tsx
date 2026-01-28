@@ -6,6 +6,7 @@ import ItemCard from './components/ItemCard';
 import ItemForm from './components/ComicForm';
 import Reports from './components/Reports';
 import VaultSwitcher from './components/VaultSwitcher';
+import Instructions from './components/Instructions';
 
 const STORAGE_KEY = 'comicvault_data_v2';
 
@@ -129,6 +130,7 @@ const App: React.FC = () => {
             onClearVault={handleClearVault}
           />
         )}
+        {view === 'help' && <Instructions />}
       </main>
 
       {showToast && (
