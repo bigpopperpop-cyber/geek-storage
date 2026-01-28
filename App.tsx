@@ -33,8 +33,16 @@ const App: React.FC = () => {
   };
 
   const handleDeleteItem = (id: string) => {
-    if (confirm("Remove this item from your vault?")) {
+    if (confirm("Permanently delete this item? This action cannot be undone.")) {
       setItems(items.filter(i => i.id !== id));
+    }
+  };
+
+  const handleClearVault = (vault: VaultType) => {
+    if (confirm(`Are you absolutely sure you want to clear the entire ${vault} vault?`)) {
+      if (confirm(`Last warning: This will delete ALL ${items.filter(i => i.category === vault).length} items in your ${vault} collection.`)) {
+        setItems(items.filter(i => i.category !== vault));
+      }
     }
   };
 
@@ -58,7 +66,8 @@ const App: React.FC = () => {
     .filter(i => i.category === activeVault)
     .filter(i => 
       i.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.provider.toLowerCase().includes(searchTerm.toLowerCase())
+      i.provider.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      i.subTitle.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
   const themeAccent = activeVault === 'comics' ? 'text-indigo-600' : 
@@ -72,7 +81,7 @@ const App: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <h1 className={`text-3xl comic-font tracking-tighter italic ${themeAccent}`}>VAULT AI</h1>
           <div className="flex items-center gap-2">
-            <button onClick={handleShare} className="p-2 bg-gray-100 text-gray-600 rounded-full">
+            <button onClick={handleShare} className="p-2 bg-gray-100 text-gray-600 rounded-full active:bg-gray-200 transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 100-5.368 3 3 0 000 5.368zm0 10.736a3 3 0 100-5.368 3 3 0 000 5.368z" />
               </svg>
@@ -89,7 +98,7 @@ const App: React.FC = () => {
           <div className="relative mt-2">
             <input
               type="text" placeholder={`Search ${activeVault}...`}
-              className="w-full pl-4 pr-4 py-3 bg-gray-100 border-none rounded-2xl text-sm focus:ring-2 focus:ring-gray-200"
+              className="w-full pl-4 pr-4 py-3 bg-gray-100 border-none rounded-2xl text-sm focus:ring-2 focus:ring-gray-200 transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -105,18 +114,25 @@ const App: React.FC = () => {
             ) : (
               <div className="text-center py-20 text-gray-400">
                 <p className="font-bold">This Vault is Empty</p>
-                <button onClick={() => setView('add')} className="mt-4 text-indigo-600 font-bold">Add Item +</button>
+                <button onClick={() => setView('add')} className={`mt-4 ${themeAccent} font-bold`}>Add Your First Item +</button>
               </div>
             )}
           </div>
         )}
 
         {view === 'add' && <ItemForm onSave={handleAddItem} activeVault={activeVault} />}
-        {view === 'reports' && <Reports comics={items} activeVault={activeVault} />}
+        {view === 'reports' && (
+          <Reports 
+            items={items} 
+            activeVault={activeVault} 
+            onDelete={handleDeleteItem} 
+            onClearVault={handleClearVault}
+          />
+        )}
       </main>
 
       {showToast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-2xl text-sm font-medium shadow-xl z-[60]">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-2xl text-sm font-medium shadow-xl z-[60] animate-in slide-in-from-bottom-5">
           Link copied! 🚀
         </div>
       )}
