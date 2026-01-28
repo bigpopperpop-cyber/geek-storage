@@ -1,10 +1,18 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { CollectionItem, VaultType } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const assessItemValue = async (item: Partial<CollectionItem>, vault: VaultType): Promise<{ value: number; justification: string }> => {
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey) {
+    return { 
+      value: 0, 
+      justification: "API Key not configured. Please add API_KEY to your environment variables." 
+    };
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
   const contextMap = {
     comics: "comic book appraiser focusing on CGC/CBCS standards and recent Heritage Auctions data.",
     sports: "sports card expert specializing in PSA/SGC/BGS grading and recent eBay/Goldin sales for rookie cards and parallels.",
@@ -41,13 +49,13 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
       },
     });
 
-    const result = JSON.parse(response.text);
+    const result = JSON.parse(response.text || '{}');
     return {
       value: result.value || 0,
       justification: result.justification || "No justification provided."
     };
   } catch (error) {
     console.error("Valuation failed:", error);
-    return { value: 0, justification: "Error during valuation. Please try again later." };
+    return { value: 0, justification: "Error during valuation. Please check your API key and connection." };
   }
 };
