@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { CollectionItem, AppView, VaultType } from './types';
 import Navbar from './components/Navbar';
-import ItemCard from './components/ComicCard';
+import ItemCard from './components/ItemCard';
 import ItemForm from './components/ComicForm';
 import Reports from './components/Reports';
 import VaultSwitcher from './components/VaultSwitcher';
