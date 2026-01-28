@@ -10,6 +10,7 @@ interface ItemCardProps {
 const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete }) => {
   const themeColor = item.category === 'comics' ? 'text-indigo-600 bg-indigo-50' : 
                      item.category === 'sports' ? 'text-emerald-600 bg-emerald-50' : 
+                     item.category === 'coins' ? 'text-yellow-700 bg-yellow-50' :
                      'text-amber-600 bg-amber-50';
 
   return (
@@ -28,8 +29,8 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete }) => {
       <div className="p-4 flex-grow flex flex-col justify-between">
         <div>
           <div className="flex justify-between items-start">
-            <h3 className="font-bold text-gray-900 leading-tight pr-2">{item.title} <span className="text-gray-400 font-normal">#{item.subTitle}</span></h3>
-            <span className={`text-xs font-bold ${themeColor} px-2 py-1 rounded`}>
+            <h3 className="font-bold text-gray-900 leading-tight pr-2 line-clamp-2">{item.title} <span className="text-gray-400 font-normal">{item.subTitle}</span></h3>
+            <span className={`text-xs font-bold whitespace-nowrap ${themeColor} px-2 py-1 rounded ml-1`}>
               ${item.estimatedValue.toLocaleString()}
             </span>
           </div>

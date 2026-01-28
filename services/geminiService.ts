@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { CollectionItem, VaultType } from "../types";
 
@@ -16,7 +17,8 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
   const contextMap = {
     comics: "comic book appraiser focusing on CGC/CBCS standards and recent Heritage Auctions data.",
     sports: "sports card expert specializing in PSA/SGC/BGS grading and recent eBay/Goldin sales for rookie cards and parallels.",
-    fantasy: "TCG specialist for Magic: The Gathering, Pokémon, and Yu-Gi-Oh, focusing on TCGPlayer market prices and card rarity."
+    fantasy: "TCG specialist for Magic: The Gathering, Pokémon, and Yu-Gi-Oh, focusing on TCGPlayer market prices and card rarity.",
+    coins: "professional numismatic expert focusing on PCGS/NGC grading standards, mintage figures, and recent auction results from Heritage Auctions and Stacks Bowers."
   };
 
   try {
@@ -24,9 +26,9 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
       model: "gemini-3-flash-preview",
       contents: `Act as a professional ${contextMap[vault]}. Assess the current market value (USD) for:
       Category: ${vault}
-      Name/Title: ${item.title}
-      Issue/Set/Player: ${item.subTitle}
-      Publisher/Manufacturer: ${item.provider}
+      Name/Title/Denomination: ${item.title}
+      Issue/Set/Player/Mint Mark: ${item.subTitle}
+      Publisher/Manufacturer/Grading: ${item.provider}
       Year: ${item.year}
       Condition: ${item.condition}
       Notes: ${item.notes}`,
@@ -41,7 +43,7 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
             },
             justification: {
               type: Type.STRING,
-              description: "A short professional explanation for this valuation based on current market trends.",
+              description: "A short professional explanation for this valuation based on current market trends and rarity.",
             },
           },
           required: ["value", "justification"],

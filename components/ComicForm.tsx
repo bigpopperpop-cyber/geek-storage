@@ -26,6 +26,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     comics: { title: 'Comic Title', sub: 'Issue #', provider: 'Publisher', accent: 'bg-indigo-600' },
     sports: { title: 'Player Name', sub: 'Set / Number', provider: 'Manufacturer', accent: 'bg-emerald-600' },
     fantasy: { title: 'Card Name', sub: 'Set / Edition', provider: 'TCG / Game', accent: 'bg-amber-500' },
+    coins: { title: 'Denomination', sub: 'Mint Mark / Variety', provider: 'Grading Service', accent: 'bg-yellow-600' },
   }[activeVault];
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -63,6 +63,7 @@ const App: React.FC = () => {
 
   const themeAccent = activeVault === 'comics' ? 'text-indigo-600' : 
                       activeVault === 'sports' ? 'text-emerald-600' : 
+                      activeVault === 'coins' ? 'text-yellow-600' :
                       'text-amber-500';
 
   return (
