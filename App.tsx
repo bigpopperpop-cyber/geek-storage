@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CollectionItem, AppView, VaultType } from './types';
 import Navbar from './components/Navbar';
@@ -16,6 +15,7 @@ const App: React.FC = () => {
   const [items, setItems] = useState<CollectionItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('Link copied! 🚀');
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -25,7 +25,16 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch (e) {
+      console.error("Storage error:", e);
+      if (e instanceof Error && e.name === 'QuotaExceededError') {
+        setToastMessage("Vault full! Try deleting some items.");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 4000);
+      }
+    }
   }, [items]);
 
   const handleAddItem = (item: CollectionItem) => {
@@ -57,6 +66,7 @@ const App: React.FC = () => {
       if (navigator.share) await navigator.share(shareData);
       else {
         await navigator.clipboard.writeText(window.location.href);
+        setToastMessage("Link copied! 🚀");
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
       }
@@ -135,7 +145,7 @@ const App: React.FC = () => {
 
       {showToast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-2xl text-sm font-medium shadow-xl z-[60] animate-in slide-in-from-bottom-5">
-          Link copied! 🚀
+          {toastMessage}
         </div>
       )}
 
