@@ -21,8 +21,9 @@ const prepareImage = (base64: string, target: 'ai' | 'storage'): Promise<string>
     img.src = base64;
     img.onload = () => {
       const canvas = document.createElement('canvas');
+      // AI needs high res to see small details
       const maxWidth = target === 'ai' ? 2048 : 800;
-      const quality = target === 'ai' ? 0.9 : 0.6;
+      const quality = target === 'ai' ? 0.95 : 0.7;
       
       let width = img.width;
       let height = img.height;
@@ -82,14 +83,17 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         const rawBase64 = reader.result as string;
         
         setIdentifying(true);
-        setStatusMsg("Processing Image...");
+        setStatusMsg("Initializing Scan...");
         try {
+          // Prepare storage version immediately
           const lowRes = await prepareImage(rawBase64, 'storage');
           setStorageImage(lowRes);
 
+          // Prepare high-quality version for Pro Vision
+          setStatusMsg("Enhancing Quality for AI...");
           const highRes = await prepareImage(rawBase64, 'ai');
-          setStatusMsg("AI Identifying Item...");
           
+          setStatusMsg("Gemini Pro Identifying...");
           const details = await identifyItemFromImage(highRes, activeVault);
           
           if (details && details.title) {
@@ -102,14 +106,15 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               keyFeatures: details.keyFeatures || '',
               condition: (details.condition as ComicCondition) || prev.condition
             }));
-            setStatusMsg(null);
+            setStatusMsg("Item Recognized!");
+            setTimeout(() => setStatusMsg(null), 2000);
           } else {
-            setStatusMsg("AI couldn't identify this. Please enter details manually.");
-            setTimeout(() => setStatusMsg(null), 4000);
+            setStatusMsg("AI couldn't see details. Try better lighting?");
+            setTimeout(() => setStatusMsg(null), 5000);
           }
         } catch (err) {
           console.error("Auto-identification failed", err);
-          setStatusMsg("Error connecting to AI. Manual entry required.");
+          setStatusMsg("Connection error. Try manual entry.");
         } finally {
           setIdentifying(false);
         }
@@ -139,7 +144,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
       onSave(newItem);
     } catch (err) {
       console.error("Submission failed", err);
-      alert("Failed to save item. Please try again.");
+      alert("Error saving item. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -168,26 +173,28 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               <div className="relative w-full h-full">
                 <img src={storageImage} className="w-full h-full object-cover" />
                 {identifying && (
-                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center backdrop-blur-[2px]">
-                    <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-2"></div>
-                    <p className="text-[10px] text-white font-black uppercase tracking-widest text-center px-4">{statusMsg || 'Scanning...'}</p>
-                    <div className="absolute inset-0 w-full h-[2px] bg-indigo-400 animate-[scan_2s_infinite] shadow-[0_0_15px_rgba(129,140,248,0.8)]"></div>
+                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center backdrop-blur-[2px]">
+                    <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin mb-3"></div>
+                    <p className="text-[9px] text-white font-black uppercase tracking-widest text-center px-4 leading-tight">{statusMsg || 'Scanning...'}</p>
+                    <div className="absolute inset-x-0 top-0 h-[2px] bg-indigo-400 animate-[scan_2s_infinite] shadow-[0_0_15px_rgba(129,140,248,0.9)]"></div>
                   </div>
                 )}
               </div>
             ) : (
               <div className="text-center p-4">
-                <svg className="w-8 h-8 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <svg className="w-10 h-10 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 </svg>
-                <p className="text-[10px] text-gray-500 mt-2 font-bold uppercase">Snap Photo</p>
-                <p className="text-[8px] text-gray-400 mt-1 uppercase italic">High-Res OCR Enabled</p>
+                <p className="text-[10px] text-gray-400 mt-3 font-black uppercase tracking-widest">Capture Item</p>
+                <p className="text-[8px] text-gray-400 mt-1 uppercase italic font-medium">Gemini 3 Pro Vision</p>
               </div>
             )}
             <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
           </div>
           {statusMsg && !identifying && (
-            <p className="text-center mt-2 text-[10px] font-bold text-amber-600 uppercase tracking-tighter animate-bounce">{statusMsg}</p>
+            <div className="bg-amber-50 text-amber-700 text-[10px] font-bold px-3 py-2 rounded-xl mt-4 text-center animate-bounce border border-amber-100 uppercase tracking-tight">
+              {statusMsg}
+            </div>
           )}
         </div>
 
@@ -196,9 +203,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.title}</label>
             <input
               type="text" required
-              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
+              placeholder={identifying ? "Waiting for AI..." : ""}
             />
           </div>
 
@@ -206,9 +214,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.sub}</label>
             <input
               type="text" required
-              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.subTitle}
               onChange={(e) => setFormData({...formData, subTitle: e.target.value})}
+              placeholder={identifying ? "..." : ""}
             />
           </div>
 
@@ -216,19 +225,21 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Year</label>
             <input
               type="text"
-              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.year}
               onChange={(e) => setFormData({...formData, year: e.target.value})}
+              placeholder={identifying ? "..." : ""}
             />
           </div>
 
           <div className="col-span-2">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Significance / Key Features</label>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Key Features / Notes</label>
             <input
               type="text"
-              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.keyFeatures}
               onChange={(e) => setFormData({...formData, keyFeatures: e.target.value})}
+              placeholder={identifying ? "Searching for keys..." : "e.g. 1st appearance of..."}
             />
           </div>
 
@@ -236,9 +247,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.provider}</label>
             <input
               type="text"
-              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.provider}
               onChange={(e) => setFormData({...formData, provider: e.target.value})}
+              placeholder={identifying ? "..." : ""}
             />
           </div>
 
@@ -258,18 +270,19 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
           type="submit"
           disabled={loading || identifying}
           className={`w-full mt-8 p-5 rounded-2xl font-black text-white transition-all flex items-center justify-center gap-2 ${
-            (loading || identifying) ? 'bg-gray-300 cursor-not-allowed' : `${labels.accent} shadow-lg active:scale-95`
+            (loading || identifying) ? 'bg-gray-300 cursor-not-allowed shadow-none' : `${labels.accent} shadow-lg active:scale-95`
           }`}
         >
-          {loading ? 'AI Valuating...' : identifying ? 'AI Scanning...' : 'AI Appraisal & Add'}
+          {loading ? 'AI Valuation in Progress...' : identifying ? 'AI Scan in Progress...' : 'Verify & Add to Vault'}
         </button>
       </div>
 
       <style>{`
         @keyframes scan {
-          0% { transform: translateY(0); }
-          50% { transform: translateY(240px); }
-          100% { transform: translateY(0); }
+          0% { transform: translateY(0); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(240px); opacity: 0; }
         }
       `}</style>
     </form>

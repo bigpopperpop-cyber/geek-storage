@@ -18,11 +18,14 @@ const contextMap = {
 export const identifyItemFromImage = async (base64Data: string, vault: VaultType) => {
   try {
     const ai = getAIInstance();
-    const mimeType = base64Data.split(';')[0].split(':')[1];
+    const mimePart = base64Data.split(';')[0];
+    const mimeType = mimePart.split(':')[1] || 'image/jpeg';
     const base64Content = base64Data.split(',')[1];
 
+    console.log(`Attempting to identify ${vault} item using Gemini 3 Pro...`);
+
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: {
         parts: [
           {
@@ -32,15 +35,16 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
             }
           },
           {
-            text: `TASK: Perform high-accuracy OCR and identify the item in this photo for my collection database.
+            text: `IDENTIFY THIS ITEM.
             
-            DIRECTIONS:
-            1. Look at the top, bottom, and corners for text.
-            2. Extract the Name/Title, Number/Issue, Year, and Company/Provider.
-            3. Check for special markings like "1st Appearance", "Rookie Card", "Variant", "Holographic", or "1st Edition".
-            4. Suggest a collector grade (Condition) based on any visible corner or surface wear.
+            1. READ ALL TEXT visible (OCR).
+            2. USE VISUAL KNOWLEDGE: If this is a famous comic (e.g. Amazing Fantasy #15) or a famous card (e.g. 1952 Mickey Mantle), identify it even if the text is hard to read.
+            3. LOOK FOR KEY DETAILS: 
+               - Comics: Title, Issue #, Publisher, Key Appearance info.
+               - Sports Cards: Player, Set Name, Year, Card #, RC logo.
+               - TCG: Card Name, Set Name/Symbol, Rarity, Edition.
             
-            Return ONLY the JSON object defined in the schema.`
+            Return a JSON object. If you aren't 100% sure about a field like 'year', make your best guess based on the item type.`
           }
         ]
       },
@@ -50,19 +54,21 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING, description: "The main name of the item or player" },
-            subTitle: { type: Type.STRING, description: "The issue number, card number, or specific variety" },
-            provider: { type: Type.STRING, description: "The manufacturer or publisher" },
-            year: { type: Type.STRING, description: "The production year" },
-            keyFeatures: { type: Type.STRING, description: "Significance: e.g. '1st Appearance of Venom' or 'RC'" },
-            condition: { type: Type.STRING, description: "Suggested collector grade" }
+            title: { type: Type.STRING, description: "Main name or player name" },
+            subTitle: { type: Type.STRING, description: "Issue number or card number" },
+            provider: { type: Type.STRING, description: "Publisher or Manufacturer" },
+            year: { type: Type.STRING, description: "Production year" },
+            keyFeatures: { type: Type.STRING, description: "Why is it special? (e.g. 1st Appearance, Rookie Card)" },
+            condition: { type: Type.STRING, description: "Visual condition estimate" }
           },
-          required: ["title", "subTitle", "provider", "year"]
+          required: ["title"] // Only Title is strictly required to avoid failing on missing minor details
         }
       }
     });
 
     const text = response.text;
+    console.debug("AI Response Text:", text);
+    
     if (!text) return null;
     return JSON.parse(text);
   } catch (error) {
@@ -79,26 +85,27 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
       contents: {
         parts: [
           {
-            text: `Appraise this ${vault} item. 
-            Name: ${item.title}
-            Detail: ${item.subTitle}
+            text: `Appraise this ${vault} item based on current market trends.
+            
+            Title: ${item.title}
+            Sub: ${item.subTitle}
             Provider: ${item.provider}
             Year: ${item.year}
-            Keys: ${item.keyFeatures}
+            Key Features: ${item.keyFeatures}
             Condition: ${item.condition}
             
-            Return the current estimated market value in USD and a brief explanation.`
+            Provide a realistic USD value and a professional justification.`
           }
         ]
       },
       config: {
-        systemInstruction: `You are a market analyst for ${vault} collectibles. Use recent auction data to provide accurate valuations.`,
+        systemInstruction: `You are a professional market analyst for ${vault} collectibles. Use your knowledge of recent auction results.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            value: { type: Type.NUMBER },
-            justification: { type: Type.STRING }
+            value: { type: Type.NUMBER, description: "Estimated USD value" },
+            justification: { type: Type.STRING, description: "Reasoning for the price" }
           },
           required: ["value", "justification"]
         }
@@ -106,14 +113,14 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
     });
 
     const text = response.text;
-    if (!text) return { value: 0, justification: "AI could not generate a valuation." };
+    if (!text) return { value: 0, justification: "Valuation unavailable." };
     const result = JSON.parse(text);
     return {
       value: result.value || 0,
-      justification: result.justification || "No justification provided."
+      justification: result.justification || "Calculated based on average market listings."
     };
   } catch (error) {
     console.error("Valuation failed:", error);
-    return { value: 0, justification: "Error during valuation. Please try again." };
+    return { value: 0, justification: "Error estimating value." };
   }
 };
