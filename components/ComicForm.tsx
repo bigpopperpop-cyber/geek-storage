@@ -14,14 +14,20 @@ const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
-// Helper to compress images to avoid LocalStorage/IndexedDB Bloat
-// Increased to 1200px for better AI readability
-const compressImage = (base64: string, maxWidth = 1200): Promise<string> => {
+/**
+ * Enhanced compression utility for different targets
+ * target 'ai' = High res for OCR accuracy
+ * target 'storage' = Low res for database efficiency
+ */
+const prepareImage = (base64: string, target: 'ai' | 'storage'): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64;
     img.onload = () => {
       const canvas = document.createElement('canvas');
+      const maxWidth = target === 'ai' ? 2048 : 800;
+      const quality = target === 'ai' ? 0.9 : 0.6;
+      
       let width = img.width;
       let height = img.height;
       
@@ -41,17 +47,16 @@ const compressImage = (base64: string, maxWidth = 1200): Promise<string> => {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(img, 0, 0, width, height);
-      // Use JPEG with 0.8 quality for better text clarity for AI
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      resolve(canvas.toDataURL('image/jpeg', quality));
     };
-    img.onerror = () => resolve(base64); // Fallback to original if error
+    img.onerror = () => resolve(base64);
   });
 };
 
 const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
   const [loading, setLoading] = useState(false);
   const [identifying, setIdentifying] = useState(false);
-  const [image, setImage] = useState<string | undefined>();
+  const [storageImage, setStorageImage] = useState<string | undefined>();
   const [formData, setFormData] = useState({
     title: '',
     subTitle: '',
@@ -76,15 +81,20 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64 = reader.result as string;
+        const rawBase64 = reader.result as string;
         
         setIdentifying(true);
         try {
-          // Compress the image before setting state
-          const compressed = await compressImage(base64);
-          setImage(compressed);
+          // 1. Prepare Storage Version (Small, stays on phone)
+          const lowRes = await prepareImage(rawBase64, 'storage');
+          setStorageImage(lowRes);
+
+          // 2. Prepare AI Version (Huge, discarded after scan)
+          const highRes = await prepareImage(rawBase64, 'ai');
           
-          const details = await identifyItemFromImage(compressed, activeVault);
+          // 3. Send High-Res to Gemini for sharp OCR
+          const details = await identifyItemFromImage(highRes, activeVault);
+          
           if (details) {
             setFormData(prev => ({
               ...prev,
@@ -120,11 +130,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         ...formData,
         estimatedValue: typeof valuation.value === 'number' ? valuation.value : 0,
         aiJustification: valuation.justification || "N/A",
-        imageUrl: image,
+        imageUrl: storageImage, // We only save the tiny version
         dateAdded: new Date().toISOString(),
       };
 
-      // Wrap in timeout to ensure UI updates smoothly
       setTimeout(() => {
         onSave(newItem);
       }, 10);
@@ -155,13 +164,13 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             onClick={() => !identifying && !loading && fileInputRef.current?.click()}
             className={`w-full aspect-[3/4] max-w-[180px] mx-auto bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative ${identifying || loading ? 'cursor-not-allowed opacity-80' : ''}`}
           >
-            {image ? (
+            {storageImage ? (
               <div className="relative w-full h-full">
-                <img src={image} className="w-full h-full object-cover" />
+                <img src={storageImage} className="w-full h-full object-cover" />
                 {identifying && (
                   <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center backdrop-blur-[2px]">
                     <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-2"></div>
-                    <p className="text-[10px] text-white font-black uppercase tracking-widest text-center px-4">AI Analyzing Text...</p>
+                    <p className="text-[10px] text-white font-black uppercase tracking-widest text-center px-4">AI Scanning High-Res...</p>
                     <div className="absolute inset-0 w-full h-[2px] bg-indigo-400 animate-[scan_2s_infinite] shadow-[0_0_15px_rgba(129,140,248,0.8)]"></div>
                   </div>
                 )}
@@ -172,7 +181,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 </svg>
                 <p className="text-[10px] text-gray-500 mt-2 font-bold uppercase">Snap Photo</p>
-                <p className="text-[8px] text-gray-400 mt-1 uppercase italic">AI will fill fields</p>
+                <p className="text-[8px] text-gray-400 mt-1 uppercase italic">High-Res OCR Enabled</p>
               </div>
             )}
             <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
@@ -184,7 +193,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.title}</label>
             <input
               type="text" required
-              placeholder={identifying ? 'Reading title...' : ''}
+              placeholder={identifying ? 'Reading clear image...' : ''}
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -217,7 +226,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Significance / Key Features</label>
             <input
               type="text"
-              placeholder={identifying ? 'Checking rarity...' : 'e.g. Rookie Card, 1st Appearance'}
+              placeholder={identifying ? 'Analyzing rarity...' : 'e.g. Rookie Card, 1st Appearance'}
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
               value={formData.keyFeatures}
               onChange={(e) => setFormData({...formData, keyFeatures: e.target.value})}
@@ -228,7 +237,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.provider}</label>
             <input
               type="text"
-              placeholder={identifying ? 'Detecting publisher...' : ''}
+              placeholder={identifying ? 'Detecting origin...' : ''}
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
               value={formData.provider}
               onChange={(e) => setFormData({...formData, provider: e.target.value})}
@@ -254,7 +263,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             (loading || identifying) ? 'bg-gray-300 cursor-not-allowed' : `${labels.accent} shadow-lg active:scale-95`
           }`}
         >
-          {loading ? 'AI Valuating...' : identifying ? 'Waiting for Identity...' : 'AI Appraisal & Add'}
+          {loading ? 'AI Valuating...' : identifying ? 'AI Scanning...' : 'AI Appraisal & Add'}
         </button>
       </div>
 
