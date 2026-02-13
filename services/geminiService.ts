@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { CollectionItem, VaultType } from "../types";
 
@@ -8,10 +9,10 @@ const getAIInstance = () => {
 };
 
 const contextMap = {
-  comics: "professional comic book historian and grader. Focus on identifying Title, Issue Number, and key significance like '1st appearance of X', 'Death of X', or 'Origin story'.",
-  sports: "sports card expert and authenticator. Focus on identifying Player Name, Set Name (e.g. Prizm, Upper Deck), Card Number, and critical labels like 'Rookie Card' or 'RC'.",
-  fantasy: "TCG/CCG master collector for Magic, Pokemon, and Yu-Gi-Oh. Focus on identifying Card Name, Set (e.g. Base Set, Alpha), Edition (1st Edition vs Unlimited), and rarity (Holo, Ghost Rare).",
-  coins: "expert numismatist. Focus on identifying Denomination, Year, Mint Mark, and specific varieties (e.g. 'Double Die', 'VDB')."
+  comics: "You are a world-class comic book historian and professional grader. You specialize in identifying Titles, Issue Numbers, Publishers, and Key Significances (like 1st appearances) from photos of comic book covers.",
+  sports: "You are a premier sports card expert and authenticator. You specialize in identifying Player Names, Card Sets (Prizm, Topps), Card Numbers, and Rookie Card (RC) designations from photos of cards.",
+  fantasy: "You are a master TCG collector (Magic, Pokemon, Yu-Gi-Oh). You specialize in identifying Card Names, Sets, Editions (1st Edition vs Unlimited), and rarity from photos of cards.",
+  coins: "You are an expert numismatist. You specialize in identifying Coin Denominations, Years, Mint Marks, and rare varieties from photos of coins."
 };
 
 export const identifyItemFromImage = async (base64Data: string, vault: VaultType) => {
@@ -31,40 +32,39 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
             }
           },
           {
-            text: `You are a ${contextMap[vault]}. 
-            INSTRUCTIONS:
-            1. Read all visible text in the image carefully (OCR).
-            2. Identify the specific item for a high-end collection database.
-            3. LOOK FOR KEY SIGNIFICANCE: Specifically check for labels or text indicating: "Rookie Card", "RC", "1st Appearance", "Special Edition", "Variant", "Key Issue", "Holographic", "1st Edition", or "Error".
+            text: `TASK: Perform high-accuracy OCR and identify the item in this photo for my collection database.
             
-            REQUIRED FIELDS:
-            - title: The main name or player.
-            - subTitle: The issue number, card number, or denomination.
-            - provider: The company that made it (e.g., Marvel, DC, Topps, Panini, Wizards of the Coast, US Mint).
-            - year: The production or minting year.
-            - keyFeatures: Describe the significance (e.g., "1st Appearance of Spider-Man", "Rookie Card", "Rare Mint Mark"). If it is a common item, leave blank.
-            - condition: Based on visible wear (corners, edges, surface), suggest a collector grade.`
+            DIRECTIONS:
+            1. Look at the top, bottom, and corners for text.
+            2. Extract the Name/Title, Number/Issue, Year, and Company/Provider.
+            3. Check for special markings like "1st Appearance", "Rookie Card", "Variant", "Holographic", or "1st Edition".
+            4. Suggest a collector grade (Condition) based on any visible corner or surface wear.
+            
+            Return ONLY the JSON object defined in the schema.`
           }
         ]
       },
       config: {
+        systemInstruction: contextMap[vault],
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING },
-            subTitle: { type: Type.STRING },
-            provider: { type: Type.STRING },
-            year: { type: Type.STRING },
-            keyFeatures: { type: Type.STRING },
-            condition: { type: Type.STRING }
+            title: { type: Type.STRING, description: "The main name of the item or player" },
+            subTitle: { type: Type.STRING, description: "The issue number, card number, or specific variety" },
+            provider: { type: Type.STRING, description: "The manufacturer or publisher" },
+            year: { type: Type.STRING, description: "The production year" },
+            keyFeatures: { type: Type.STRING, description: "Significance: e.g. '1st Appearance of Venom' or 'RC'" },
+            condition: { type: Type.STRING, description: "Suggested collector grade" }
           },
           required: ["title", "subTitle", "provider", "year"]
         }
       }
     });
 
-    return JSON.parse(response.text || '{}');
+    const text = response.text;
+    if (!text) return null;
+    return JSON.parse(text);
   } catch (error) {
     console.error("Identification failed:", error);
     return null;
@@ -79,46 +79,41 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
       contents: {
         parts: [
           {
-            text: `Act as a professional market analyst for ${contextMap[vault]}. Assess the current fair market value (USD) for this item:
-            
-            Category: ${vault}
+            text: `Appraise this ${vault} item. 
             Name: ${item.title}
             Detail: ${item.subTitle}
-            Manufacturer: ${item.provider}
+            Provider: ${item.provider}
             Year: ${item.year}
-            Key Features: ${item.keyFeatures}
+            Keys: ${item.keyFeatures}
             Condition: ${item.condition}
             
-            Consider recent auction sales and current scarcity.`
+            Return the current estimated market value in USD and a brief explanation.`
           }
         ]
       },
       config: {
+        systemInstruction: `You are a market analyst for ${vault} collectibles. Use recent auction data to provide accurate valuations.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            value: {
-              type: Type.NUMBER,
-              description: "The estimated market value in USD.",
-            },
-            justification: {
-              type: Type.STRING,
-              description: "A professional explanation for this specific value.",
-            },
+            value: { type: Type.NUMBER },
+            justification: { type: Type.STRING }
           },
-          required: ["value", "justification"],
-        },
-      },
+          required: ["value", "justification"]
+        }
+      }
     });
 
-    const result = JSON.parse(response.text || '{}');
+    const text = response.text;
+    if (!text) return { value: 0, justification: "AI could not generate a valuation." };
+    const result = JSON.parse(text);
     return {
       value: result.value || 0,
       justification: result.justification || "No justification provided."
     };
   } catch (error) {
     console.error("Valuation failed:", error);
-    return { value: 0, justification: "Error during valuation. Please check your connection." };
+    return { value: 0, justification: "Error during valuation. Please try again." };
   }
 };
