@@ -23,6 +23,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     subTitle: '',
     provider: '',
     year: '',
+    keyFeatures: '',
     condition: 'Near Mint' as ComicCondition,
     notes: '',
   });
@@ -55,6 +56,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               subTitle: details.subTitle || prev.subTitle,
               provider: details.provider || prev.provider,
               year: details.year || prev.year,
+              keyFeatures: details.keyFeatures || prev.keyFeatures,
               condition: (details.condition as ComicCondition) || prev.condition
             }));
           }
@@ -86,7 +88,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         dateAdded: new Date().toISOString(),
       };
 
-      onSave(newItem);
+      // Wrap in timeout to ensure state transitions don't block
+      setTimeout(() => {
+        onSave(newItem);
+      }, 10);
     } catch (err) {
       console.error("Submission failed", err);
       alert("Failed to save item. Please try again.");
@@ -111,8 +116,8 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
 
         <div className="mb-6">
           <div 
-            onClick={() => !identifying && fileInputRef.current?.click()}
-            className={`w-full aspect-[3/4] max-w-[180px] mx-auto bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative ${identifying ? 'cursor-not-allowed opacity-80' : ''}`}
+            onClick={() => !identifying && !loading && fileInputRef.current?.click()}
+            className={`w-full aspect-[3/4] max-w-[180px] mx-auto bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative ${identifying || loading ? 'cursor-not-allowed opacity-80' : ''}`}
           >
             {image ? (
               <div className="relative w-full h-full">
@@ -169,6 +174,17 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
               value={formData.year}
               onChange={(e) => setFormData({...formData, year: e.target.value})}
+            />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Significance / Key Features</label>
+            <input
+              type="text"
+              placeholder={identifying ? 'Checking rarity...' : 'e.g. Rookie Card, 1st Appearance'}
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
+              value={formData.keyFeatures}
+              onChange={(e) => setFormData({...formData, keyFeatures: e.target.value})}
             />
           </div>
 

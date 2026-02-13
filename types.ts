@@ -1,4 +1,3 @@
-
 export type ComicCondition = 'Gem Mint' | 'Mint' | 'Near Mint' | 'Very Fine' | 'Fine' | 'Very Good' | 'Good' | 'Fair' | 'Poor';
 export type VaultType = 'comics' | 'sports' | 'fantasy' | 'coins';
 
@@ -11,6 +10,7 @@ export interface CollectionItem {
   year: string;
   condition: ComicCondition;
   notes: string;
+  keyFeatures: string; // Significance (Rookie Card, 1st Appearance, etc.)
   estimatedValue: number;
   aiJustification: string;
   imageUrl?: string;

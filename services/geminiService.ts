@@ -36,6 +36,7 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
           - subTitle: (e.g. Issue #300, 1986 Fleer #57, Base Set Holo, Half Dollar)
           - provider: (e.g. Marvel, Fleer, Wizards of the Coast, US Mint)
           - year: (e.g. 1988, 1941)
+          - keyFeatures: Does this have special significance? (e.g. "Rookie Card", "1st Appearance of Venom", "First Solo Title", "Rare Mint Mark", "Holographic Rare"). Leave blank if common.
           - condition: Suggest a grade based on visual quality (e.g. Near Mint, Very Fine).`
         }
       ],
@@ -48,6 +49,7 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
             subTitle: { type: Type.STRING },
             provider: { type: Type.STRING },
             year: { type: Type.STRING },
+            keyFeatures: { type: Type.STRING },
             condition: { type: Type.STRING }
           },
           required: ["title", "subTitle", "provider", "year"]
@@ -73,6 +75,7 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
       Issue/Set/Player/Mint Mark: ${item.subTitle}
       Publisher/Manufacturer/Grading: ${item.provider}
       Year: ${item.year}
+      Significance/Key Features: ${item.keyFeatures}
       Condition: ${item.condition}
       Notes: ${item.notes}`,
       config: {
