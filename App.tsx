@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CollectionItem, AppView, VaultType } from './types';
 import Navbar from './components/Navbar';
@@ -6,52 +7,85 @@ import ItemForm from './components/ComicForm';
 import Reports from './components/Reports';
 import VaultSwitcher from './components/VaultSwitcher';
 import Instructions from './components/Instructions';
+import * as storage from './services/storageService';
 
-const STORAGE_KEY = 'comicvault_data_v2';
+const OLD_STORAGE_KEY = 'comicvault_data_v2';
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('collection');
   const [activeVault, setActiveVault] = useState<VaultType>('comics');
   const [items, setItems] = useState<CollectionItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('Link copied! 🚀');
+  const [toastMessage, setToastMessage] = useState('');
 
+  // Initial Load & Migration
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try { setItems(JSON.parse(saved)); } catch (e) { console.error(e); }
-    }
+    const loadData = async () => {
+      try {
+        let currentItems = await storage.getAllItems();
+        
+        // Check for migration from LocalStorage
+        const savedOld = localStorage.getItem(OLD_STORAGE_KEY);
+        if (savedOld && currentItems.length === 0) {
+          try {
+            const legacyItems: CollectionItem[] = JSON.parse(savedOld);
+            console.log(`Migrating ${legacyItems.length} items to IndexedDB...`);
+            for (const item of legacyItems) {
+              await storage.saveItem(item);
+            }
+            currentItems = await storage.getAllItems();
+            localStorage.removeItem(OLD_STORAGE_KEY);
+            setToastMessage("Storage optimized for high volume! 🚀");
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
+          } catch (e) {
+            console.error("Migration failed", e);
+          }
+        }
+        
+        setItems(currentItems);
+      } catch (err) {
+        console.error("Failed to load vault:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
-  useEffect(() => {
+  const handleAddItem = async (item: CollectionItem) => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch (e) {
-      console.error("Storage error:", e);
-      if (e instanceof Error && e.name === 'QuotaExceededError') {
-        setToastMessage("Vault full! Try deleting some items.");
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 4000);
+      await storage.saveItem(item);
+      setItems(prev => [item, ...prev]);
+      setView('collection');
+    } catch (err) {
+      console.error("Save failed:", err);
+      alert("Database error: Could not save item.");
+    }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    if (confirm("Permanently delete this item? This action cannot be undone.")) {
+      try {
+        await storage.deleteItem(id);
+        setItems(items.filter(i => i.id !== id));
+      } catch (err) {
+        console.error("Delete failed:", err);
       }
     }
-  }, [items]);
-
-  const handleAddItem = (item: CollectionItem) => {
-    setItems([item, ...items]);
-    setView('collection');
   };
 
-  const handleDeleteItem = (id: string) => {
-    if (confirm("Permanently delete this item? This action cannot be undone.")) {
-      setItems(items.filter(i => i.id !== id));
-    }
-  };
-
-  const handleClearVault = (vault: VaultType) => {
+  const handleClearVault = async (vault: VaultType) => {
     if (confirm(`Are you absolutely sure you want to clear the entire ${vault} vault?`)) {
       if (confirm(`Last warning: This will delete ALL ${items.filter(i => i.category === vault).length} items in your ${vault} collection.`)) {
-        setItems(items.filter(i => i.category !== vault));
+        try {
+          await storage.clearVaultStore(vault);
+          setItems(items.filter(i => i.category !== vault));
+        } catch (err) {
+          console.error("Clear failed:", err);
+        }
       }
     }
   };
@@ -118,29 +152,38 @@ const App: React.FC = () => {
       </header>
 
       <main className="px-6 py-6">
-        {view === 'collection' && (
-          <div className="space-y-4 pb-24">
-            {filteredItems.length > 0 ? (
-              filteredItems.map((item) => <ItemCard key={item.id} item={item} onDelete={handleDeleteItem} />)
-            ) : (
-              <div className="text-center py-20 text-gray-400">
-                <p className="font-bold">This Vault is Empty</p>
-                <button onClick={() => setView('add')} className={`mt-4 ${themeAccent} font-bold`}>Add Your First Item +</button>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+            <div className="w-12 h-12 border-4 border-gray-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+            <p className="text-xs text-gray-400 font-black uppercase tracking-widest">Unlocking Vault...</p>
+          </div>
+        ) : (
+          <>
+            {view === 'collection' && (
+              <div className="space-y-4 pb-24">
+                {filteredItems.length > 0 ? (
+                  filteredItems.map((item) => <ItemCard key={item.id} item={item} onDelete={handleDeleteItem} />)
+                ) : (
+                  <div className="text-center py-20 text-gray-400">
+                    <p className="font-bold">This Vault is Empty</p>
+                    <button onClick={() => setView('add')} className={`mt-4 ${themeAccent} font-bold`}>Add Your First Item +</button>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {view === 'add' && <ItemForm onSave={handleAddItem} activeVault={activeVault} />}
-        {view === 'reports' && (
-          <Reports 
-            items={items} 
-            activeVault={activeVault} 
-            onDelete={handleDeleteItem} 
-            onClearVault={handleClearVault}
-          />
+            {view === 'add' && <ItemForm onSave={handleAddItem} activeVault={activeVault} />}
+            {view === 'reports' && (
+              <Reports 
+                items={items} 
+                activeVault={activeVault} 
+                onDelete={handleDeleteItem} 
+                onClearVault={handleClearVault}
+              />
+            )}
+            {view === 'help' && <Instructions />}
+          </>
         )}
-        {view === 'help' && <Instructions />}
       </main>
 
       {showToast && (

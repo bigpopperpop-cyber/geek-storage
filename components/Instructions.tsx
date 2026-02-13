@@ -14,14 +14,14 @@ const Instructions: React.FC = () => {
       icon: "💎"
     },
     {
-      title: "Private Vaults",
-      desc: "All your data is stored locally in your phone's browser. We don't use accounts or cloud storage, keeping your collection 100% private.",
-      icon: "🔒"
+      title: "High-Capacity Storage",
+      desc: "We use IndexedDB to store your collection. This allows for thousands of items and photos without running out of space.",
+      icon: "🏢"
     },
     {
-      title: "Switch Categories",
-      desc: "Use the vault switcher at the top to jump between Comics, Sports Cards, TCG (Fantasy), and Coin collections.",
-      icon: "🔄"
+      title: "Private & Local",
+      desc: "All your data stays 100% on your device. No cloud, no accounts, just your private vault on your phone.",
+      icon: "🔒"
     }
   ];
 
@@ -31,7 +31,7 @@ const Instructions: React.FC = () => {
     <div className="space-y-6 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 rounded-3xl text-white shadow-xl">
         <h2 className="text-2xl font-black italic comic-font mb-2">COLLECTOR'S GUIDE</h2>
-        <p className="text-indigo-100 text-sm font-medium">Master your vault with AI-powered tools.</p>
+        <p className="text-indigo-100 text-sm font-medium">Master your vault with high-capacity AI tools.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -51,10 +51,10 @@ const Instructions: React.FC = () => {
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
-          Pro Tip: Accuracy
+          Pro Tip: Image Handling
         </h3>
         <p className="text-sky-700 text-[11px] leading-tight font-medium">
-          For the best AI results, ensure your item is well-lit and the text is clearly visible. If the AI misses a detail, you can always tap any field to manually correct it before saving!
+          Images are automatically compressed to save space, but our database is built to handle massive collections. You can store hundreds of graded comics or cards with ease!
         </p>
       </div>
 
@@ -76,7 +76,7 @@ const Instructions: React.FC = () => {
 
       <div className="text-center px-6">
         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-          Powered by Gemini 3 Flash • Secure Local Storage v2.0
+          Powered by Gemini 3 Flash • High-Capacity IndexedDB v3.0
         </p>
       </div>
     </div>
