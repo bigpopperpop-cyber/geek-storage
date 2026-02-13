@@ -7,6 +7,13 @@ interface ItemFormProps {
   activeVault: VaultType;
 }
 
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+};
+
 const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
   const [loading, setLoading] = useState(false);
   const [identifying, setIdentifying] = useState(false);
@@ -39,18 +46,23 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         
         // Auto-identify
         setIdentifying(true);
-        const details = await identifyItemFromImage(base64, activeVault);
-        if (details) {
-          setFormData(prev => ({
-            ...prev,
-            title: details.title || prev.title,
-            subTitle: details.subTitle || prev.subTitle,
-            provider: details.provider || prev.provider,
-            year: details.year || prev.year,
-            condition: (details.condition as ComicCondition) || prev.condition
-          }));
+        try {
+          const details = await identifyItemFromImage(base64, activeVault);
+          if (details) {
+            setFormData(prev => ({
+              ...prev,
+              title: details.title || prev.title,
+              subTitle: details.subTitle || prev.subTitle,
+              provider: details.provider || prev.provider,
+              year: details.year || prev.year,
+              condition: (details.condition as ComicCondition) || prev.condition
+            }));
+          }
+        } catch (err) {
+          console.error("Auto-identification failed", err);
+        } finally {
+          setIdentifying(false);
         }
-        setIdentifying(false);
       };
       reader.readAsDataURL(file);
     }
@@ -61,20 +73,26 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     if (!formData.title || !formData.subTitle) return;
 
     setLoading(true);
-    const valuation = await assessItemValue(formData, activeVault);
+    try {
+      const valuation = await assessItemValue(formData, activeVault);
 
-    const newItem: CollectionItem = {
-      id: crypto.randomUUID(),
-      category: activeVault,
-      ...formData,
-      estimatedValue: valuation.value,
-      aiJustification: valuation.justification,
-      imageUrl: image,
-      dateAdded: new Date().toISOString(),
-    };
+      const newItem: CollectionItem = {
+        id: generateId(),
+        category: activeVault,
+        ...formData,
+        estimatedValue: typeof valuation.value === 'number' ? valuation.value : 0,
+        aiJustification: valuation.justification || "N/A",
+        imageUrl: image,
+        dateAdded: new Date().toISOString(),
+      };
 
-    onSave(newItem);
-    setLoading(false);
+      onSave(newItem);
+    } catch (err) {
+      console.error("Submission failed", err);
+      alert("Failed to save item. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const conditions: ComicCondition[] = [

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CollectionItem } from '../types';
 
@@ -12,6 +11,10 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete }) => {
                      item.category === 'sports' ? 'text-emerald-600 bg-emerald-50' : 
                      item.category === 'coins' ? 'text-yellow-700 bg-yellow-50' :
                      'text-amber-600 bg-amber-50';
+
+  const displayValue = typeof item.estimatedValue === 'number' 
+    ? item.estimatedValue.toLocaleString() 
+    : '0';
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex transition-transform active:scale-[0.98] animate-in fade-in zoom-in-95 duration-200">
@@ -33,7 +36,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete }) => {
               {item.title} <span className="text-gray-400 font-normal">#{item.subTitle}</span>
             </h3>
             <span className={`text-[11px] font-black whitespace-nowrap ${themeColor} px-2 py-1 rounded-lg ml-1`}>
-              ${item.estimatedValue.toLocaleString()}
+              ${displayValue}
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider font-semibold">{item.provider} • {item.year}</p>
