@@ -8,10 +8,10 @@ const getAIInstance = () => {
 };
 
 const contextMap = {
-  comics: "comic book expert identifying titles, issue numbers, publishers, and years.",
-  sports: "sports card expert identifying players, sets, card numbers, manufacturers, and years.",
-  fantasy: "TCG/CCG expert identifying card names, sets, editions (First/Unlimited), and manufacturers.",
-  coins: "numismatic expert identifying denominations, mint marks, varieties, and years."
+  comics: "professional comic book historian and grader. Focus on identifying Title, Issue Number, and key significance like '1st appearance of X', 'Death of X', or 'Origin story'.",
+  sports: "sports card expert and authenticator. Focus on identifying Player Name, Set Name (e.g. Prizm, Upper Deck), Card Number, and critical labels like 'Rookie Card' or 'RC'.",
+  fantasy: "TCG/CCG master collector for Magic, Pokemon, and Yu-Gi-Oh. Focus on identifying Card Name, Set (e.g. Base Set, Alpha), Edition (1st Edition vs Unlimited), and rarity (Holo, Ghost Rare).",
+  coins: "expert numismatist. Focus on identifying Denomination, Year, Mint Mark, and specific varieties (e.g. 'Double Die', 'VDB')."
 };
 
 export const identifyItemFromImage = async (base64Data: string, vault: VaultType) => {
@@ -22,24 +22,31 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [
-        {
-          inlineData: {
-            mimeType: mimeType,
-            data: base64Content
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Content
+            }
+          },
+          {
+            text: `You are a ${contextMap[vault]}. 
+            INSTRUCTIONS:
+            1. Read all visible text in the image carefully (OCR).
+            2. Identify the specific item for a high-end collection database.
+            3. LOOK FOR KEY SIGNIFICANCE: Specifically check for labels or text indicating: "Rookie Card", "RC", "1st Appearance", "Special Edition", "Variant", "Key Issue", "Holographic", "1st Edition", or "Error".
+            
+            REQUIRED FIELDS:
+            - title: The main name or player.
+            - subTitle: The issue number, card number, or denomination.
+            - provider: The company that made it (e.g., Marvel, DC, Topps, Panini, Wizards of the Coast, US Mint).
+            - year: The production or minting year.
+            - keyFeatures: Describe the significance (e.g., "1st Appearance of Spider-Man", "Rookie Card", "Rare Mint Mark"). If it is a common item, leave blank.
+            - condition: Based on visible wear (corners, edges, surface), suggest a collector grade.`
           }
-        },
-        {
-          text: `Act as a ${contextMap[vault]}. Look at this image and identify the following details for a collection database.
-          Fields needed:
-          - title: (e.g. The Amazing Spider-Man, Michael Jordan, Charizard, Walking Liberty)
-          - subTitle: (e.g. Issue #300, 1986 Fleer #57, Base Set Holo, Half Dollar)
-          - provider: (e.g. Marvel, Fleer, Wizards of the Coast, US Mint)
-          - year: (e.g. 1988, 1941)
-          - keyFeatures: Does this have special significance? (e.g. "Rookie Card", "1st Appearance of Venom", "First Solo Title", "Rare Mint Mark", "Holographic Rare"). Leave blank if common.
-          - condition: Suggest a grade based on visual quality (e.g. Near Mint, Very Fine).`
-        }
-      ],
+        ]
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -69,15 +76,23 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
     const ai = getAIInstance();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Act as a professional ${contextMap[vault]}. Assess the current market value (USD) for:
-      Category: ${vault}
-      Name/Title/Denomination: ${item.title}
-      Issue/Set/Player/Mint Mark: ${item.subTitle}
-      Publisher/Manufacturer/Grading: ${item.provider}
-      Year: ${item.year}
-      Significance/Key Features: ${item.keyFeatures}
-      Condition: ${item.condition}
-      Notes: ${item.notes}`,
+      contents: {
+        parts: [
+          {
+            text: `Act as a professional market analyst for ${contextMap[vault]}. Assess the current fair market value (USD) for this item:
+            
+            Category: ${vault}
+            Name: ${item.title}
+            Detail: ${item.subTitle}
+            Manufacturer: ${item.provider}
+            Year: ${item.year}
+            Key Features: ${item.keyFeatures}
+            Condition: ${item.condition}
+            
+            Consider recent auction sales and current scarcity.`
+          }
+        ]
+      },
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -89,7 +104,7 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
             },
             justification: {
               type: Type.STRING,
-              description: "A short professional explanation for this valuation based on current market trends and rarity.",
+              description: "A professional explanation for this specific value.",
             },
           },
           required: ["value", "justification"],
@@ -104,6 +119,6 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
     };
   } catch (error) {
     console.error("Valuation failed:", error);
-    return { value: 0, justification: "Error during valuation. Please check your API key and connection." };
+    return { value: 0, justification: "Error during valuation. Please check your connection." };
   }
 };

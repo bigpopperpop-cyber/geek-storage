@@ -14,8 +14,9 @@ const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
-// Helper to compress images to avoid LocalStorage QuotaExceeded errors
-const compressImage = (base64: string, maxWidth = 800): Promise<string> => {
+// Helper to compress images to avoid LocalStorage/IndexedDB Bloat
+// Increased to 1200px for better AI readability
+const compressImage = (base64: string, maxWidth = 1200): Promise<string> => {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64;
@@ -40,8 +41,8 @@ const compressImage = (base64: string, maxWidth = 800): Promise<string> => {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(img, 0, 0, width, height);
-      // Use JPEG with 0.7 quality for excellent compression
-      resolve(canvas.toDataURL('image/jpeg', 0.7));
+      // Use JPEG with 0.8 quality for better text clarity for AI
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
     };
     img.onerror = () => resolve(base64); // Fallback to original if error
   });
@@ -77,13 +78,12 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
       reader.onloadend = async () => {
         const base64 = reader.result as string;
         
-        // Compress the image before setting state
-        const compressed = await compressImage(base64);
-        setImage(compressed);
-        
-        // Auto-identify using the compressed version (saves bandwidth/latency too)
         setIdentifying(true);
         try {
+          // Compress the image before setting state
+          const compressed = await compressImage(base64);
+          setImage(compressed);
+          
           const details = await identifyItemFromImage(compressed, activeVault);
           if (details) {
             setFormData(prev => ({
@@ -124,7 +124,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         dateAdded: new Date().toISOString(),
       };
 
-      // Wrap in timeout to ensure state transitions don't block
+      // Wrap in timeout to ensure UI updates smoothly
       setTimeout(() => {
         onSave(newItem);
       }, 10);
@@ -159,10 +159,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               <div className="relative w-full h-full">
                 <img src={image} className="w-full h-full object-cover" />
                 {identifying && (
-                  <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center">
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center backdrop-blur-[2px]">
                     <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-2"></div>
-                    <p className="text-[10px] text-white font-black uppercase tracking-widest">Scanning...</p>
-                    <div className="absolute inset-0 w-full h-1 bg-white/50 animate-[scan_2s_infinite]"></div>
+                    <p className="text-[10px] text-white font-black uppercase tracking-widest text-center px-4">AI Analyzing Text...</p>
+                    <div className="absolute inset-0 w-full h-[2px] bg-indigo-400 animate-[scan_2s_infinite] shadow-[0_0_15px_rgba(129,140,248,0.8)]"></div>
                   </div>
                 )}
               </div>
@@ -184,7 +184,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.title}</label>
             <input
               type="text" required
-              placeholder={identifying ? 'Identifying...' : ''}
+              placeholder={identifying ? 'Reading title...' : ''}
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -260,9 +260,9 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
 
       <style>{`
         @keyframes scan {
-          0% { top: 0%; }
-          50% { top: 100%; }
-          100% { top: 0%; }
+          0% { transform: translateY(0); }
+          50% { transform: translateY(240px); }
+          100% { transform: translateY(0); }
         }
       `}</style>
     </form>
