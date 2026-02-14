@@ -9,6 +9,30 @@ interface ScannerProps {
   onResult: (item: VaultItem) => void;
 }
 
+const resizeImage = (base64Str: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 1024; // Reasonable size for OCR and AI analysis
+      let width = img.width;
+      let height = img.height;
+
+      if (width > MAX_WIDTH) {
+        height *= MAX_WIDTH / width;
+        width = MAX_WIDTH;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.8)); // 80% quality
+    };
+  });
+};
+
 const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState('');
@@ -20,11 +44,14 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
 
     const reader = new FileReader();
     reader.onload = async () => {
-      const base64 = reader.result as string;
+      const rawBase64 = reader.result as string;
       setProcessing(true);
-      setStatus('Processing Macro Scan...');
+      setStatus('Optimizing Image...');
       
       try {
+        const base64 = await resizeImage(rawBase64);
+        setStatus('Identifying Detail...');
+        
         const data = await identifyAndAppraise(base64, category);
         if (data) {
           setStatus('Analyzing Significance...');
@@ -38,9 +65,9 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
             image: base64
           });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        alert("Scan failed. Try using your phone's 3x zoom and focus clearly on the small text area.");
+        alert(`Scan failed: ${err.message || "Unknown error"}. Try focusing closer or checking your internet connection.`);
         setProcessing(false);
       }
     };
@@ -63,26 +90,22 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
             </div>
           )}
           
-          {/* Alignment Frame for Zoomed Shots */}
           <div className="absolute inset-6 border border-dashed border-indigo-200/50 rounded-2xl pointer-events-none">
             <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-xl"></div>
             <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-xl"></div>
             <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-xl"></div>
             <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-xl"></div>
             
-            {/* Center Crosshair */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 opacity-30">
               <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-indigo-500"></div>
               <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-indigo-500"></div>
             </div>
           </div>
 
-          {/* Animated Macro Scan Line */}
           {processing && (
             <div className="absolute left-0 right-0 h-0.5 bg-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.8)] animate-scan-fast z-10"></div>
           )}
           
-          {/* Zoom Level Indicator (Visual Only) */}
           {!processing && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200 text-[10px] font-black text-slate-500 shadow-sm">
               3X OPTIMIZED
