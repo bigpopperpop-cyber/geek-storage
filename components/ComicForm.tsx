@@ -18,7 +18,7 @@ const prepareImage = (base64: string): Promise<string> => {
     img.src = base64;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      // 3072px for 3K high-res reading
+      // 3K res is perfect for Gemini 3 Pro
       const maxWidth = 3072;
       const quality = 0.98;
       
@@ -82,11 +82,11 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         const rawBase64 = reader.result as string;
         
         setIdentifying(true);
-        setStatusMsg("Analyzing 3K Vision Data...");
+        setStatusMsg("Engaging Pro Brain...");
         try {
           const processedImg = await prepareImage(rawBase64);
           
-          setStatusMsg("AI Identification Live...");
+          setStatusMsg("Analyzing Item Details...");
           const details = await identifyItemFromImage(processedImg, activeVault);
           
           if (details) {
@@ -100,14 +100,14 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               condition: (details.condition as ComicCondition) || prev.condition,
             }));
             setHasScanned(true);
-            setStatusMsg("AI Scan Successful!");
+            setStatusMsg("Identification Complete!");
             setTimeout(() => setStatusMsg(null), 3000);
           } else {
-            setStatusMsg("Partial identification. Manual verify.");
+            setStatusMsg("AI was unsure. Check manual entry.");
           }
         } catch (err) {
           console.error("Auto-identification failed", err);
-          setStatusMsg("Scan timeout. Manual entry ready.");
+          setStatusMsg("Scan Error. Try again.");
         } finally {
           setIdentifying(false);
         }
@@ -121,7 +121,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     if (!formData.title) return;
 
     setLoading(true);
-    setStatusMsg("Consulting real-time market...");
+    setStatusMsg("Consulting market data...");
     try {
       const valuation = await assessItemValue(formData, activeVault);
 
@@ -130,7 +130,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         category: activeVault,
         ...formData,
         estimatedValue: typeof valuation.value === 'number' ? valuation.value : 0,
-        aiJustification: valuation.justification || "Grounded estimate",
+        aiJustification: valuation.justification || "Market estimate",
         dateAdded: new Date().toISOString(),
       };
 
@@ -175,25 +175,25 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-[10px] font-black mt-2 uppercase tracking-widest">Identified</span>
+                <span className="text-[10px] font-black mt-2 uppercase tracking-widest text-green-600">Pro Scan OK</span>
               </div>
             ) : identifying ? (
               <div className="flex flex-col items-center">
                 <div className="w-10 h-10 border-4 border-gray-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                <span className="text-[10px] font-black text-indigo-600 mt-3 uppercase tracking-widest">AI Scanning</span>
+                <span className="text-[10px] font-black text-indigo-600 mt-3 uppercase tracking-widest">Thinking...</span>
               </div>
             ) : (
               <div className="flex flex-col items-center text-gray-300">
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 </svg>
-                <span className="text-[10px] font-black mt-2 uppercase tracking-widest italic">Vision Scan</span>
+                <span className="text-[10px] font-black mt-2 uppercase tracking-widest italic">Snap Card</span>
               </div>
             )}
             <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
           </div>
           {statusMsg && (
-            <div className={`inline-block px-3 py-1.5 rounded-xl mt-4 text-[10px] font-black uppercase tracking-tight border animate-pulse ${statusMsg.includes('Error') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
+            <div className={`inline-block px-3 py-1.5 rounded-xl mt-4 text-[10px] font-black uppercase tracking-tight border animate-in fade-in zoom-in-95 ${statusMsg.includes('Error') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
               {statusMsg}
             </div>
           )}
@@ -207,7 +207,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
-              placeholder="Detecting Name..."
+              placeholder="Awaiting Scan..."
             />
           </div>
 
@@ -218,7 +218,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.subTitle}
               onChange={(e) => setFormData({...formData, subTitle: e.target.value})}
-              placeholder="Detecting ID..."
+              placeholder="# / Set"
             />
           </div>
 
@@ -240,7 +240,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.keyFeatures}
               onChange={(e) => setFormData({...formData, keyFeatures: e.target.value})}
-              placeholder="e.g. Rookie Card, Foil, etc."
+              placeholder="e.g. Rookie Card, Holo, etc."
             />
           </div>
 

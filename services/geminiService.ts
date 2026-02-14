@@ -8,14 +8,6 @@ const getAIInstance = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-// Robust identification instructions per vault
-const identificationProtocols = {
-  comics: "Identify the COMIC BOOK. Extract: Title, Issue Number, Month/Year, and Publisher. Ignore glares.",
-  sports: "Identify the SPORTS CARD. Extract: Player Name, Year, Set Name (Topps, Panini, etc.), and Card Number. Read tiny text.",
-  fantasy: "Identify the TCG CARD. Extract: Card Name, Set Code, and Edition. Look for rarity symbols.",
-  coins: "Identify the COIN. Extract: Denomination, Mint Mark, and Year. Focus on fine metal details."
-};
-
 const extractJSON = (text: string) => {
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -36,10 +28,12 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
     const mimeType = mimePart.split(':')[1] || 'image/jpeg';
     const base64Content = base64Data.split(',')[1];
 
-    console.log(`[Vault AI] Initiating Visual Identification for ${vault}...`);
+    console.log(`[Vault AI] Engaging Gemini 3 Pro Vision for ${vault}...`);
 
+    // Using PRO for identification because FLASH is failing on complex card patterns.
+    // Added thinkingBudget to allow the model to analyze the image thoroughly.
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: {
         parts: [
           {
@@ -49,32 +43,29 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
             }
           },
           {
-            text: `SYSTEM MANDATE: You are a high-speed vision identification engine.
+            text: `You are the world's leading expert in ${vault} collectibles. 
+            Analyze this image carefully. If it's a card, it might be the front or the back.
             
-            TASK: Identify this ${vault.toUpperCase()} item.
+            1. Look for Player/Character names.
+            2. Look for Set years and brand names (Topps, Panini, Upper Deck, Marvel, DC).
+            3. Look for card numbers (e.g., #23, #451).
+            4. Identify any specific parallels (Holo, Silver, Variant).
             
-            IDENTIFICATION PROTOCOL:
-            1. Perform deep OCR to read ALL text on the item.
-            2. Match visual patterns against historical databases.
-            3. Ignore photographic artifacts (glares, shadows, blur).
-            
-            ${identificationProtocols[vault]}
-            
-            Return ONLY a JSON object:
+            Identify the item and return ONLY this JSON:
             {
-              "title": "Main Name/Title",
-              "subTitle": "ID Number/Set Info",
-              "provider": "Company/Publisher",
-              "year": "YYYY",
-              "keyFeatures": "Notable traits (Rookie, 1st App, Parallel)",
-              "condition": "Visual Grade"
+              "title": "Main Title or Player Name",
+              "subTitle": "Card # or Issue #",
+              "provider": "Manufacturer or Publisher",
+              "year": "Year of Release",
+              "keyFeatures": "Notable traits (e.g. Rookie, 1st Appearance, Refractor)",
+              "condition": "Visual condition estimate"
             }`
           }
         ]
       },
       config: {
-        tools: [{ googleSearch: {} }],
-        systemInstruction: "You are an expert ${vault} identifier. You never fail to identify an item from a high-res image. You focus on the text and visual markings."
+        thinkingConfig: { thinkingBudget: 4000 },
+        systemInstruction: `You are an expert ${vault} identifier. You can read tiny text and identify rare items from any angle.`
       }
     });
 
@@ -91,37 +82,34 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
 export const assessItemValue = async (item: Partial<CollectionItem>, vault: VaultType): Promise<{ value: number; justification: string }> => {
   try {
     const ai = getAIInstance();
+    // Flash is fine for the text-based search task of valuation
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
           {
-            text: `VALUATION REQUEST: Search market data for this ${vault} item.
-            
-            Item: ${item.title}
-            Sub: ${item.subTitle}
+            text: `VALUATION: Search for real sold prices for this ${vault} item.
+            Item: ${item.title} ${item.subTitle}
             Year: ${item.year}
             Condition: ${item.condition}
             Features: ${item.keyFeatures}
             
-            Provide the average current market price and justification.
-            
             Return JSON:
             {
               "value": 0.00,
-              "justification": "Short reason"
+              "justification": "Short explanation"
             }`
           }
         ]
       },
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: "You are a market data analyst specializing in collectibles."
+        systemInstruction: "You are a professional market analyst."
       }
     });
 
     const text = response.text;
-    if (!text) return { value: 0, justification: "Valuation failed." };
+    if (!text) return { value: 0, justification: "Search failed." };
     
     const result = extractJSON(text);
     return {
