@@ -15,8 +15,6 @@ export interface CollectionItem {
   estimatedValue: number;
   aiJustification: string;
   dateAdded: string;
-  // Fix: Added imageUrl property to store captured item images
-  imageUrl?: string;
 }
 
 export type AppView = 'collection' | 'add' | 'reports' | 'help';
