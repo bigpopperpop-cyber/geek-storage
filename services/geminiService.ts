@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { CollectionItem, VaultType } from "../types";
 
@@ -9,12 +8,15 @@ const getAIInstance = () => {
 };
 
 const contextMap = {
-  comics: "You are an expert comic book identifier. You focus on the Title, Issue Number, and Publisher visible on the cover.",
-  sports: "You are a specialized sports card authenticator. You look for the Player Name, Team, Set Name (e.g., Prizm, Topps, Upper Deck), and the Year. You are excellent at reading tiny text on cards.",
-  fantasy: "You are a TCG expert. You identify card names, set symbols, and rarity marks for Pokemon, MTG, and Yu-Gi-Oh.",
-  coins: "You are a professional numismatist. You identify coins, years, and mint marks."
+  comics: "You are a professional comic book appraiser. You have expert knowledge of every comic cover ever printed and can identify them from even partial photos.",
+  sports: "You are a top-tier sports card authenticator. You recognize players, card sets, and years instantly from visual cues and tiny text.",
+  fantasy: "You are a master TCG historian. You know every set and rarity symbol for Pokemon, Magic, and Yu-Gi-Oh.",
+  coins: "You are a professional numismatist. You identify coins, mint marks, and varieties with surgical precision."
 };
 
+/**
+ * Clean AI response to extract JSON if it's wrapped in markdown blocks
+ */
 const extractJSON = (text: string) => {
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -35,9 +37,8 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
     const mimeType = mimePart.split(':')[1] || 'image/jpeg';
     const base64Content = base64Data.split(',')[1];
 
-    console.log(`[Vault AI] Scanning ${vault} item...`);
+    console.log(`[Vault AI] Identifying ${vault} item with 3K High-Res Vision...`);
 
-    // Using Flash for faster, more resilient multimodal processing
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
@@ -49,22 +50,19 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
             }
           },
           {
-            text: `IDENTIFY THIS ${vault.toUpperCase()} ITEM.
+            text: `Please identify this ${vault} item. 
+            The image is a high-resolution 3K scan. Focus on reading all visible text (Player Name, Team, Year, Set Name, Issue Number).
             
-            IMPORTANT: Ignore any camera glares, shadows, or minor blur. The image is provided for identification only.
+            Identify specific variants (e.g., "Silver Prizm", "1st Edition", "Variant Cover").
             
-            1. READ TEXT: Look for Player Name, Set Name, Year, and Number.
-            2. VISUAL MATCH: Recognize the specific card design or artwork.
-            3. GOOGLE SEARCH: Cross-reference visual details with current databases.
-            
-            OUTPUT ONLY THIS JSON:
+            Return the details in this JSON format:
             {
-              "title": "Main Name (e.g. Michael Jordan)",
-              "subTitle": "ID (e.g. #23 / Prizm Silver)",
-              "provider": "Company (e.g. Panini)",
+              "title": "Exact Title/Player Name",
+              "subTitle": "ID Number or Set Name",
+              "provider": "Publisher/Manufacturer",
               "year": "YYYY",
-              "keyFeatures": "Significance (e.g. Rookie Card, Holo)",
-              "condition": "Visual Estimate"
+              "keyFeatures": "Notable attributes (e.g., Rookie Card, Holographic)",
+              "condition": "Visual Condition Estimate"
             }`
           }
         ]
@@ -93,39 +91,38 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
       contents: {
         parts: [
           {
-            text: `APPRAISAL REQUEST: Find current market prices for this ${vault} item.
-            
+            text: `Find the current market value for this ${vault} item:
             Item: ${item.title}
-            Sub: ${item.subTitle}
+            ID: ${item.subTitle}
             Year: ${item.year}
             Condition: ${item.condition}
             
-            Search for recent sales on eBay, 130Point, or auction houses.
+            Search for recent sold listings on eBay or specialized auction sites.
             
-            OUTPUT ONLY THIS JSON:
+            Return JSON:
             {
               "value": 0.00,
-              "justification": "Short reasoning based on search"
+              "justification": "Explanation of price based on recent sales"
             }`
           }
         ]
       },
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: "You are a professional market analyst for collectibles."
+        systemInstruction: `You are a real-time market analyst for ${vault} collectibles.`
       }
     });
 
     const text = response.text;
-    if (!text) return { value: 0, justification: "Search failed." };
+    if (!text) return { value: 0, justification: "Valuation unavailable." };
     
     const result = extractJSON(text);
     return {
       value: result?.value || 0,
-      justification: result?.justification || "Market average."
+      justification: result?.justification || "Calculated from market averages."
     };
   } catch (error) {
     console.error("Valuation failed:", error);
-    return { value: 0, justification: "Valuation error." };
+    return { value: 0, justification: "Error estimating value." };
   }
 };
