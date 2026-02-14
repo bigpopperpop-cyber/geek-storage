@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { CollectionItem, ComicCondition, VaultType } from '../types';
-import { identifySportsCard } from '../services/geminiService';
+import { identifyItem } from '../services/geminiService';
 
 interface ItemFormProps {
   onSave: (item: CollectionItem) => void;
@@ -24,6 +24,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     keyFeatures: '',
     condition: 'Near Mint' as ComicCondition,
     estimatedValue: '',
+    facts: [] as string[],
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,9 +37,9 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         const rawBase64 = reader.result as string;
         
         setIdentifying(true);
-        setStatusMsg("Scanning Card...");
+        setStatusMsg("Analyzing significance...");
         try {
-          const details = await identifySportsCard(rawBase64);
+          const details = await identifyItem(rawBase64, activeVault);
           
           if (details) {
             setFormData(prev => ({
@@ -48,9 +49,11 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               provider: details.provider || '',
               year: details.year || '',
               keyFeatures: details.keyFeatures || '',
+              estimatedValue: details.estimatedValue?.toString() || '',
+              facts: details.facts || [],
             }));
-            setStatusMsg("Card Identified!");
-            setTimeout(() => setStatusMsg(null), 2000);
+            setStatusMsg("Details & significance identified!");
+            setTimeout(() => setStatusMsg(null), 3000);
           } else {
             setStatusMsg("Could not identify. Please enter manually.");
           }
@@ -73,7 +76,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
       category: activeVault,
       ...formData,
       estimatedValue: parseFloat(formData.estimatedValue) || 0,
-      aiJustification: "Manual entry",
+      aiJustification: "Identified via AI Research",
       dateAdded: new Date().toISOString(),
       notes: ''
     };
@@ -84,6 +87,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
   const conditions: ComicCondition[] = [
     'Gem Mint', 'Mint', 'Near Mint', 'Very Fine', 'Fine', 'Very Good', 'Good', 'Fair', 'Poor'
   ];
+
+  const vaultColor = activeVault === 'comics' ? 'emerald' : 
+                    activeVault === 'sports' ? 'emerald' : 
+                    activeVault === 'coins' ? 'yellow' : 'amber';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-24">
@@ -96,26 +103,40 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="w-full py-4 bg-emerald-50 text-emerald-600 rounded-2xl border-2 border-dashed border-emerald-200 font-bold uppercase text-xs tracking-widest flex flex-col items-center gap-2"
+            className={`w-full py-6 bg-${vaultColor}-50 text-${vaultColor}-600 rounded-2xl border-2 border-dashed border-${vaultColor}-200 font-bold uppercase text-xs tracking-widest flex flex-col items-center gap-2 transition-all active:scale-95`}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            </svg>
-            {identifying ? "Identifying..." : "Scan Card for Details"}
+            <div className={`p-3 bg-${vaultColor}-100 rounded-full mb-1`}>
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              </svg>
+            </div>
+            {identifying ? "Researching Item..." : "Deep Scan Item"}
+            <span className="text-[9px] opacity-60 normal-case font-medium">Detects Rookie status, 1st appearances & rarity</span>
           </button>
           <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
-          {statusMsg && <p className="text-[10px] font-bold text-emerald-600 mt-2 uppercase">{statusMsg}</p>}
+          {statusMsg && <p className={`text-[10px] font-bold text-${vaultColor}-600 mt-2 uppercase animate-pulse`}>{statusMsg}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Title / Player</label>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Title / Player / Key</label>
             <input
               type="text" required
-              className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm"
+              className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm font-bold"
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
-              placeholder="e.g. Ken Griffey Jr."
+              placeholder="e.g. Ken Griffey Jr. / Hulk #181"
+            />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Significance / Key Features</label>
+            <input
+              type="text"
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none text-sm italic ${formData.keyFeatures ? 'text-emerald-600' : ''}`}
+              value={formData.keyFeatures}
+              onChange={(e) => setFormData({...formData, keyFeatures: e.target.value})}
+              placeholder="e.g. Rookie Card / 1st Appearance of Wolverine"
             />
           </div>
 
@@ -150,6 +171,21 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               onChange={(e) => setFormData({...formData, year: e.target.value})}
               placeholder="YYYY"
             />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Discovered Facts</label>
+            <div className="bg-gray-50 rounded-2xl p-4 min-h-[60px] space-y-2">
+              {formData.facts.length > 0 ? (
+                formData.facts.map((f, i) => (
+                  <p key={i} className="text-[11px] text-gray-600 flex gap-2">
+                    <span className="text-emerald-500">•</span> {f}
+                  </p>
+                ))
+              ) : (
+                <p className="text-[11px] text-gray-300 italic">Scan an item to see interesting history...</p>
+              )}
+            </div>
           </div>
 
           <div className="col-span-2">
