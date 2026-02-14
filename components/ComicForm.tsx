@@ -1,10 +1,10 @@
 
 import React, { useState, useRef } from 'react';
-import { CollectionItem, ComicCondition, VaultType } from '../types';
-import { identifyItem } from '../services/geminiService';
+import { VaultItem, ComicCondition, VaultType } from '../types';
+import { identifyCollectible } from '../services/geminiService';
 
 interface ItemFormProps {
-  onSave: (item: CollectionItem) => void;
+  onSave: (item: VaultItem) => void;
   activeVault: VaultType;
 }
 
@@ -39,7 +39,8 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         setIdentifying(true);
         setStatusMsg("Analyzing significance...");
         try {
-          const details = await identifyItem(rawBase64, activeVault);
+          // Corrected: Imported identifyCollectible as identifyItem was not exported
+          const details = await identifyCollectible(rawBase64, activeVault);
           
           if (details) {
             setFormData(prev => ({
@@ -48,7 +49,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               subTitle: details.subTitle || '',
               provider: details.provider || '',
               year: details.year || '',
-              keyFeatures: details.keyFeatures || '',
+              keyFeatures: details.keyFeatures || details.significance || '',
               estimatedValue: details.estimatedValue?.toString() || '',
               facts: details.facts || [],
             }));
@@ -71,14 +72,23 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     e.preventDefault();
     if (!formData.title) return;
 
-    const newItem: CollectionItem = {
+    // Fixed: Mapped form data to VaultItem interface correctly
+    const newItem: VaultItem = {
       id: generateId(),
       category: activeVault,
-      ...formData,
+      title: formData.title,
+      subTitle: formData.subTitle,
+      year: formData.year,
+      provider: formData.provider,
+      significance: formData.keyFeatures,
+      condition: formData.condition,
       estimatedValue: parseFloat(formData.estimatedValue) || 0,
+      facts: formData.facts,
       aiJustification: "Identified via AI Research",
       dateAdded: new Date().toISOString(),
-      notes: ''
+      lastValued: new Date().toISOString(),
+      notes: '',
+      keyFeatures: formData.keyFeatures
     };
 
     onSave(newItem);

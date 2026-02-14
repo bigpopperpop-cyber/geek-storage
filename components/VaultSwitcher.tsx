@@ -1,36 +1,35 @@
 
 import React from 'react';
-import { VaultType } from '../types';
+import { VaultType, VAULT_CONFIG } from '../types';
 
-interface VaultSwitcherProps {
+interface SwitcherProps {
   activeVault: VaultType;
-  onChange: (vault: VaultType) => void;
+  setActiveVault: (v: VaultType) => void;
 }
 
-const VaultSwitcher: React.FC<VaultSwitcherProps> = ({ activeVault, onChange }) => {
-  const vaults: { id: VaultType; label: string; icon: string; color: string }[] = [
-    { id: 'comics', label: 'Comics', icon: '📚', color: 'bg-indigo-600' },
-    { id: 'sports', label: 'Sports', icon: '⚾', color: 'bg-emerald-600' },
-    { id: 'fantasy', label: 'Fantasy', icon: '🧙‍♂️', color: 'bg-amber-500' },
-    { id: 'coins', label: 'Coins', icon: '🪙', color: 'bg-yellow-600' },
-  ];
+const VaultSwitcher: React.FC<SwitcherProps> = ({ activeVault, setActiveVault }) => {
+  const vaults = Object.keys(VAULT_CONFIG) as VaultType[];
 
   return (
-    <div className="grid grid-cols-4 gap-1 p-1 bg-gray-100 rounded-2xl mb-6">
-      {vaults.map((v) => (
-        <button
-          key={v.id}
-          onClick={() => onChange(v.id)}
-          className={`py-2 px-1 rounded-xl text-[10px] font-bold transition-all flex flex-col items-center justify-center gap-1 ${
-            activeVault === v.id 
-              ? `${v.color} text-white shadow-sm scale-105` 
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <span className="text-sm">{v.icon}</span>
-          <span className="truncate w-full text-center">{v.label}</span>
-        </button>
-      ))}
+    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-6 mb-2">
+      {vaults.map((v) => {
+        const active = activeVault === v;
+        const config = VAULT_CONFIG[v];
+        return (
+          <button
+            key={v}
+            onClick={() => setActiveVault(v)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-2xl whitespace-nowrap font-bold text-sm transition-all shadow-sm ${
+              active 
+                ? 'bg-slate-900 text-white scale-105' 
+                : 'bg-white text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <span>{config.icon}</span>
+            <span>{config.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 };

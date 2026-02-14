@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { CollectionItem } from '../types';
+import { VaultItem } from '../types';
 import { reEvaluateItem } from '../services/geminiService';
 
 interface ItemCardProps {
-  item: CollectionItem;
+  item: VaultItem;
   onDelete: (id: string) => void;
-  onUpdate: (item: CollectionItem) => void;
+  onUpdate: (item: VaultItem) => void;
 }
 
 const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
@@ -26,13 +26,14 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
     try {
       const result = await reEvaluateItem(item);
       if (result) {
+        // Fixed: Updated result properties to match reEvaluateItem service response
         onUpdate({
           ...item,
-          estimatedValue: result.value || item.estimatedValue,
-          facts: result.facts || item.facts,
-          aiJustification: result.justification || item.aiJustification,
-          // Update item with verified research sources
-          sources: result.sources || item.sources
+          estimatedValue: result.estimatedValue || item.estimatedValue,
+          facts: result.updatedFacts || item.facts,
+          aiJustification: result.reasoning || item.aiJustification,
+          sources: result.sources || item.sources,
+          lastValued: new Date().toISOString()
         });
       }
     } catch (err) {

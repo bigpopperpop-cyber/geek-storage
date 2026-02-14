@@ -1,6 +1,6 @@
 {
-  "name": "ComicVault AI",
-  "description": "A mobile-first comic book database with AI-powered value assessment and collection reporting.",
+  "name": "Vault AI",
+  "description": "Multi-collectible database with AI identification and valuation.",
   "requestFramePermissions": [
     "camera"
   ]

@@ -1,10 +1,10 @@
 
 import React, { useMemo, useState } from 'react';
-import { CollectionItem, VaultType } from '../types';
+import { VaultItem, VaultType } from '../types';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 interface ReportsProps {
-  items: CollectionItem[];
+  items: VaultItem[];
   activeVault: VaultType;
   onDelete: (id: string) => void;
   onClearVault: (vault: VaultType) => void;
@@ -13,7 +13,7 @@ interface ReportsProps {
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#eab308'];
 
 const Reports: React.FC<ReportsProps> = ({ items, activeVault, onDelete, onClearVault }) => {
-  const [sortKey, setSortKey] = useState<keyof CollectionItem>('estimatedValue');
+  const [sortKey, setSortKey] = useState<keyof VaultItem>('estimatedValue');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const filteredItems = useMemo(() => 
@@ -51,7 +51,7 @@ const Reports: React.FC<ReportsProps> = ({ items, activeVault, onDelete, onClear
     });
   }, [filteredItems, sortKey, sortOrder]);
 
-  const toggleSort = (key: keyof CollectionItem) => {
+  const toggleSort = (key: keyof VaultItem) => {
     if (sortKey === key) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortOrder('desc'); }
   };
