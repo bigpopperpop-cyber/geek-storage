@@ -1,3 +1,4 @@
+
 export type ComicCondition = 'Gem Mint' | 'Mint' | 'Near Mint' | 'Very Fine' | 'Fine' | 'Very Good' | 'Good' | 'Fair' | 'Poor';
 export type VaultType = 'comics' | 'sports' | 'fantasy' | 'coins';
 
@@ -13,8 +14,9 @@ export interface CollectionItem {
   keyFeatures: string; // Significance (Rookie Card, 1st Appearance, etc.)
   estimatedValue: number;
   aiJustification: string;
-  imageUrl?: string;
   dateAdded: string;
+  // Fix: Added imageUrl property to store captured item images
+  imageUrl?: string;
 }
 
 export type AppView = 'collection' | 'add' | 'reports' | 'help';

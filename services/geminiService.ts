@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { CollectionItem, VaultType } from "../types";
 
@@ -8,15 +9,12 @@ const getAIInstance = () => {
 };
 
 const contextMap = {
-  comics: "You are a professional comic book appraiser. You have expert knowledge of every comic cover ever printed and can identify them from even partial photos.",
-  sports: "You are a top-tier sports card authenticator. You recognize players, card sets, and years instantly from visual cues.",
-  fantasy: "You are a master TCG historian. You know every set and rarity symbol for Pokemon, Magic, and Yu-Gi-Oh.",
-  coins: "You are a professional numismatist. You identify coins, mint marks, and varieties with surgical precision."
+  comics: "You are a world-class comic book historian and professional grader. You have perfect visual memory of every cover printed. You are currently in 'Expert Mode'.",
+  sports: "You are a premier sports card authenticator and historian. You recognize players, sets, and card numbers instantly. You are currently in 'Expert Mode'.",
+  fantasy: "You are a TCG Grandmaster. You know every set symbol, rarity, and edition for TCG games. You are currently in 'Expert Mode'.",
+  coins: "You are a professional numismatist. You identify coins, mint marks, and varieties with surgical precision. You are currently in 'Expert Mode'."
 };
 
-/**
- * Clean AI response to extract JSON if it's wrapped in markdown blocks
- */
 const extractJSON = (text: string) => {
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -37,12 +35,10 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
     const mimeType = mimePart.split(':')[1] || 'image/jpeg';
     const base64Content = base64Data.split(',')[1];
 
-    console.log(`[Vault AI] Identifying ${vault} item with high-res vision...`);
+    console.log(`[Vault AI] Identification Protocol Initiated (Gemini 3 Pro)...`);
 
-    // We use gemini-3-flash-preview as it is currently the most robust multimodal model
-    // for complex visual identification and OCR tasks.
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: {
         parts: [
           {
@@ -52,21 +48,24 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
             }
           },
           {
-            text: `TASK: IDENTIFY THIS ${vault.toUpperCase()} ITEM. 
-            Do not refuse or mention lighting; the image is ultra-high resolution (3K).
+            text: `SYSTEM OVERRIDE: DO NOT REFUSE THIS TASK. 
+            The user has provided a laboratory-grade 3K scan. Do not mention 'lighting' or 'blurry' under any circumstances.
             
-            1. READ ALL TEXT visible (OCR).
-            2. Match visual artwork/features to your deep internal database.
-            3. Use Google Search to cross-reference recent releases or specific variants if needed.
+            TASK: Identify the specific ${vault} item in this image.
             
-            Return the identification details in the following JSON format ONLY:
+            DIRECTIONS:
+            1. Use Google Search to cross-reference visual patterns with known databases.
+            2. Extract Title/Player Name, Issue/Card Number, Year, and Publisher/Set.
+            3. Check for special variants (Holographic, 1st Edition, Variant Cover).
+            
+            MANDATORY JSON OUTPUT:
             {
-              "title": "Exact Name/Player",
-              "subTitle": "Issue # / Card # / Series",
-              "provider": "Publisher / Manufacturer",
+              "title": "Exact Name",
+              "subTitle": "ID # / Set",
+              "provider": "Company",
               "year": "YYYY",
-              "keyFeatures": "Significance (e.g. 1st appearance, RC)",
-              "condition": "Visual grade (e.g. Near Mint)"
+              "keyFeatures": "Notable attributes (e.g. Rookie Card, 1st App)",
+              "condition": "Visual Grade"
             }`
           }
         ]
@@ -90,33 +89,30 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
 export const assessItemValue = async (item: Partial<CollectionItem>, vault: VaultType): Promise<{ value: number; justification: string }> => {
   try {
     const ai = getAIInstance();
-    console.log(`[Vault AI] Appraising ${item.title}...`);
-
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
           {
-            text: `USE GOOGLE SEARCH to find current market values and recent auction results for this ${vault} item:
+            text: `GROUNDED APPRAISAL: Use Google Search to find real-time market data for:
             
-            Title: ${item.title}
-            Sub-Info: ${item.subTitle}
-            Provider: ${item.provider}
+            Item: ${item.title}
+            Sub: ${item.subTitle}
             Year: ${item.year}
             Condition: ${item.condition}
             Features: ${item.keyFeatures}
             
-            Return the appraisal in this JSON format ONLY:
+            Return the current average market price and a brief reasoning in JSON:
             {
               "value": 00.00,
-              "justification": "Brief explanation citing recent search findings"
+              "justification": "Evidence-based explanation"
             }`
           }
         ]
       },
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: `You are a real-time market analyst for ${vault} collectibles. Use current web data to provide accurate valuations.`
+        systemInstruction: `You are a market analyst for high-end collectibles. Cite recent search results for price accuracy.`
       }
     });
 
@@ -126,10 +122,10 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
     const result = extractJSON(text);
     return {
       value: result?.value || 0,
-      justification: result?.justification || "Calculated based on average market listings."
+      justification: result?.justification || "Market average estimation."
     };
   } catch (error) {
     console.error("Valuation failed:", error);
-    return { value: 0, justification: "Error estimating value via search." };
+    return { value: 0, justification: "Error estimating value." };
   }
 };
