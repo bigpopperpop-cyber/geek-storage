@@ -29,58 +29,64 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
         });
       }
     } catch (err) {
-      alert("Failed to re-value. Try again later.");
+      alert("Market check failed. Try again later.");
     } finally {
       setIsUpdating(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100 flex flex-col animate-in fade-in zoom-in-95 duration-300">
-      <div className="relative aspect-[4/3] bg-slate-900">
-        <img src={item.image} className="w-full h-full object-cover opacity-90" alt={item.title} />
+    <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-100 flex flex-col animate-in fade-in zoom-in-95 duration-300">
+      <div className="relative aspect-[4/3] bg-slate-900 group">
+        <img src={item.image} className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" alt={item.title} />
         <button 
           onClick={onBack}
-          className="absolute top-4 left-4 bg-black/40 text-white p-2 rounded-full backdrop-blur-md hover:bg-black/60 transition-colors"
+          className="absolute top-6 left-6 bg-black/50 text-white p-3 rounded-full backdrop-blur-lg hover:bg-black/70 transition-all active:scale-90"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
       </div>
 
-      <div className="p-6">
-        <div className="flex justify-between items-start gap-4">
-          <div className="min-w-0">
-            <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest inline-block mb-2">
-              {item.year} {item.provider}
-            </span>
-            <h2 className="text-2xl font-black text-slate-900 leading-tight truncate">{item.title}</h2>
-            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-tight">{item.subTitle}</p>
+      <div className="p-8">
+        <div className="flex justify-between items-start gap-6">
+          <div className="min-w-0 flex-grow">
+            <div className="flex items-center gap-2 mb-2">
+               <span className="bg-slate-100 text-slate-500 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">
+                {item.year} {item.brand}
+              </span>
+              {item.cardNumber && (
+                <span className="bg-indigo-50 text-indigo-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-indigo-100">
+                  #{item.cardNumber}
+                </span>
+              )}
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 leading-tight">{item.title}</h2>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Est. Value</p>
-            <p className="text-2xl font-black text-slate-900 tracking-tighter">
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-tighter mb-1">Market Value</p>
+            <p className="text-3xl font-black text-slate-900 tracking-tighter">
               ${(item.estimatedValue || 0).toLocaleString()}
             </p>
           </div>
         </div>
 
         {item.significance && (
-          <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-              ✨ Collector Significance
+          <div className="mt-8 p-5 bg-indigo-50/50 rounded-3xl border border-indigo-100/50">
+            <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+              <span className="text-base">💎</span> Key Attribute
             </p>
-            <p className="text-sm font-semibold text-slate-700 italic leading-relaxed">"{item.significance}"</p>
+            <p className="text-base font-bold text-indigo-900 leading-relaxed italic">"{item.significance}"</p>
           </div>
         )}
 
-        <div className="mt-8">
-          <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-50 pb-1">Vault Insights</h3>
-          <ul className="space-y-3">
+        <div className="mt-10">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Vault Analysis</h3>
+          <ul className="space-y-4">
             {item.facts.map((fact, i) => (
-              <li key={i} className="flex gap-3 text-sm font-medium text-slate-600 leading-snug">
-                <span className="w-5 h-5 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center text-[10px] shrink-0 font-bold">
+              <li key={i} className="flex gap-4 text-sm font-semibold text-slate-700 leading-snug">
+                <span className="w-6 h-6 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center text-[11px] shrink-0 font-black">
                   {i + 1}
                 </span>
                 {fact}
@@ -89,54 +95,53 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
           </ul>
         </div>
 
-        {/* Grounding Sources - Mandatory as per Google Search Policy */}
         {item.sources && item.sources.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-50 pb-1">Verified Research Sources</h3>
-            <div className="flex flex-wrap gap-2">
+          <div className="mt-10">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Verified Market Sources</h3>
+            <div className="flex flex-wrap gap-3">
               {item.sources.map((source, i) => (
                 <a 
                   key={i} 
                   href={source.uri} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-bold border border-indigo-100 hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                  className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[11px] font-black border border-slate-100 hover:bg-white hover:shadow-md transition-all flex items-center gap-2"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
-                  {source.title.length > 20 ? source.title.substring(0, 20) + '...' : source.title}
+                  {source.title.length > 24 ? source.title.substring(0, 24) + '...' : source.title}
                 </a>
               ))}
             </div>
           </div>
         )}
 
-        <div className="mt-10 pt-8 border-t border-slate-50 flex flex-col gap-3">
+        <div className="mt-12 pt-8 border-t border-slate-50 flex flex-col gap-4">
           <button
             onClick={handleReValue}
             disabled={isUpdating}
-            className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+            className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
           >
             {isUpdating ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
             ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             )}
-            {isUpdating ? 'Analyzing Market...' : 'Refresh Market Value'}
+            {isUpdating ? 'Re-Appraising...' : 'Refresh Market Data'}
           </button>
           
           <button
             onClick={onDelete}
-            className="w-full py-4 text-red-500 font-bold text-[10px] uppercase tracking-widest hover:bg-red-50 rounded-2xl transition-colors"
+            className="w-full py-4 text-red-500 font-black text-[11px] uppercase tracking-widest hover:bg-red-50 rounded-[1.5rem] transition-colors"
           >
-            Delete Item
+            Purge from Vault
           </button>
           
-          <div className="text-center mt-2">
-             <p className="text-[8px] text-slate-300 font-bold uppercase tracking-widest">
+          <div className="text-center">
+             <p className="text-[9px] text-slate-300 font-black uppercase tracking-widest">
               Last Analysis: {new Date(item.lastValued).toLocaleString()}
             </p>
           </div>

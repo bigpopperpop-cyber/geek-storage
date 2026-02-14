@@ -20,7 +20,8 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
   const [formData, setFormData] = useState({
     title: '',
     subTitle: '',
-    provider: '',
+    brand: '', // Changed from provider to match VaultItem and geminiService
+    cardNumber: '',
     year: '',
     keyFeatures: '',
     condition: 'Near Mint' as ComicCondition,
@@ -48,7 +49,8 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               ...prev,
               title: details.title || '',
               subTitle: details.subTitle || '',
-              provider: details.provider || '',
+              brand: details.brand || '', // Fixed: Use brand from details
+              cardNumber: details.cardNumber || '',
               year: details.year || '',
               keyFeatures: details.significance || '',
               estimatedValue: details.estimatedValue?.toString() || '',
@@ -80,7 +82,8 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
       title: formData.title,
       subTitle: formData.subTitle,
       year: formData.year,
-      provider: formData.provider,
+      brand: formData.brand, // Fixed: Use brand instead of provider
+      cardNumber: formData.cardNumber, // Fixed: Added missing required field
       significance: formData.keyFeatures,
       condition: formData.condition,
       estimatedValue: parseFloat(formData.estimatedValue) || 0,
@@ -99,7 +102,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     'Gem Mint', 'Mint', 'Near Mint', 'Very Fine', 'Fine', 'Very Good', 'Good', 'Fair', 'Poor'
   ];
 
-  const vaultColor = activeVault === 'comics' ? 'emerald' : 
+  const vaultColor = activeVault === 'comics' ? 'indigo' : 
                     activeVault === 'sports' ? 'emerald' : 
                     activeVault === 'coins' ? 'yellow' : 'amber';
 
@@ -118,7 +121,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
           >
             <div className={`p-3 bg-${vaultColor}-100 rounded-full mb-1`}>
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               </svg>
             </div>
             {identifying ? "Researching Item..." : "Deep Scan Item"}
@@ -148,6 +151,17 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               value={formData.keyFeatures}
               onChange={(e) => setFormData({...formData, keyFeatures: e.target.value})}
               placeholder="e.g. Rookie Card / 1st Appearance of Wolverine"
+            />
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Brand / Manufacturer</label>
+            <input
+              type="text" required
+              className="w-full p-4 bg-gray-50 rounded-2xl border-none text-sm"
+              value={formData.brand}
+              onChange={(e) => setFormData({...formData, brand: e.target.value})}
+              placeholder="e.g. Topps / Marvel / PCGS"
             />
           </div>
 

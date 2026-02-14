@@ -15,30 +15,31 @@ const extractJSON = (text: string) => {
 };
 
 /**
- * Identify item + Deep Market Search for Significance (Rookie/1st App)
- * Optimized for back-of-card scans using OCR and Google Search Grounding.
+ * Expert Cataloger Logic:
+ * 1. Prioritize Back-of-Card OCR (Stats, Numbers).
+ * 2. Ground Market Research with Google Search.
+ * 3. Extract structured JSON.
  */
 export const identifyAndAppraise = async (base64Image: string, category: VaultType) => {
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
 
-  // Specific system instructions for identifying tricky scans (especially card backs)
-  const systemInstruction = `You are an expert ${category} cataloger and authenticator. 
-Your goal is to identify the specific item in any image provided.
+  const systemInstruction = `You are an expert ${category} cataloger and Market Analyst. Your goal is to identify items from images (front or back) and provide precise market data.
 
-1. Prioritize the 'Back': If the image contains a table of statistics, a year (e.g., 1989), and a card/issue number (e.g., #45), use these as your primary identifiers.
-2. OCR Requirement: Extract the Name, Year, Brand, and Number from the text.
-3. Glare Resilience: Ignore plastic reflections or blueish glares from background screens.
-4. Search Grounding: Use Google Search Grounding to verify the exact set name and market significance.
-5. Identify if it is a "Key" item (e.g., Rookie Card, 1st Appearance, Rare Variety).`;
+Instructions:
+- Prioritize the 'Back': If the image contains a table of statistics, a year, and a card/issue number (e.g., #45), use these as primary identifiers.
+- OCR Requirement: Extract Name, Year, Brand/Manufacturer, and Card/Issue Number.
+- Search Grounding: Use Google Search Grounding to verify the specific market name and significance.
+- Key Status: Identify if it is a 'Key' item (Rookie, 1st Appearance, Rare Variety).
+- Glare Resilience: Ignore monitor glare or plastic reflections.`;
 
-  // 1. Identify visually with OCR priority & Google Search
+  // Step 1: Visual Identification & Verification via Search
   const visionRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-        { text: "Identify this item precisely. If it's a sports card back, focus on the stats and card number to determine the player and set." }
+        { text: `Identify this ${category} item precisely. Focus on text/OCR if it's the back of the item.` }
       ]
     },
     config: {
@@ -48,16 +49,13 @@ Your goal is to identify the specific item in any image provided.
   });
 
   const identity = visionRes.text;
-  if (!identity) throw new Error("ID failed");
+  if (!identity) throw new Error("Identification failed");
 
-  // 2. Grounded Market Research for Significance and Value
-  // We use the identity found in step 1 to do a deep search
+  // Step 2: Deep Market Appraisal
   const researchRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Research current market value and collector significance for: "${identity}". 
-    Look for sold prices and price guides. 
-    Check "Key" status: Is it a Rookie? 1st appearance? Rare variety? 
-    Find 3 historical facts about this specific release.`,
+    contents: `Research current market value, auction results, and significance for: "${identity}". 
+    Look for "Key" status (Rookie/1st App) and find 3 historical/market facts.`,
     config: { 
       systemInstruction,
       tools: [{ googleSearch: {} }] 
@@ -72,20 +70,19 @@ Your goal is to identify the specific item in any image provided.
       uri: chunk.web.uri
     }));
 
-  // 3. Final Structured Data Extraction
+  // Step 3: Structured Data Output
   const finalRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Based on this research: "${researchRes.text}", structure the data into the following JSON format.
+    contents: `Based on this research: "${researchRes.text}", fill the following JSON structure exactly. Value should be a numeric USD estimate.
     
-    JSON Schema:
+    JSON Template:
     {
-      "name": "Full Player/Item Name",
+      "name": "Full Item/Player Name",
       "year": "YYYY",
-      "brand": "Manufacturer/Brand",
-      "cardNumber": "Card # or Issue #",
-      "isRookie": boolean,
-      "significance": "One-sentence collector significance",
-      "estimatedValue": number,
+      "brand": "Brand/Manufacturer",
+      "cardNumber": "Number",
+      "significance": "One-sentence collector significance (e.g. Rookie Card)",
+      "estimatedValue": 0.00,
       "facts": ["Fact 1", "Fact 2", "Fact 3"]
     }`,
     config: {
@@ -97,45 +94,40 @@ Your goal is to identify the specific item in any image provided.
           year: { type: Type.STRING },
           brand: { type: Type.STRING },
           cardNumber: { type: Type.STRING },
-          isRookie: { type: Type.BOOLEAN },
           significance: { type: Type.STRING },
           estimatedValue: { type: Type.NUMBER },
           facts: { type: Type.ARRAY, items: { type: Type.STRING } }
         },
-        required: ["name", "year", "brand", "cardNumber", "isRookie", "significance", "estimatedValue", "facts"]
+        required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts"]
       }
     }
   });
 
   const data = extractJSON(finalRes.text);
-  
   if (data) {
-    // Map the model's output back to our VaultItem interface
     return {
       title: data.name,
-      subTitle: data.cardNumber,
+      subTitle: data.cardNumber ? `#${data.cardNumber}` : '',
       year: data.year,
-      provider: data.brand,
-      significance: data.isRookie ? `Rookie Card - ${data.significance}` : data.significance,
+      brand: data.brand,
+      cardNumber: data.cardNumber,
+      significance: data.significance,
       estimatedValue: data.estimatedValue,
       facts: data.facts,
       sources
     };
   }
-  
   return null;
 };
 
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
-  const query = `Latest auction prices and market value for: ${item.year} ${item.provider} ${item.title} ${item.subTitle} (${item.category}). Use Google Search Grounding.`;
+  const query = `Latest auction prices for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}).`;
 
   const researchRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: query,
-    config: { 
-      tools: [{ googleSearch: {} }]
-    }
+    config: { tools: [{ googleSearch: {} }] }
   });
 
   const sources = researchRes.candidates?.[0]?.groundingMetadata?.groundingChunks
@@ -144,7 +136,7 @@ export const reEvaluateItem = async (item: VaultItem) => {
 
   const formatRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Summarize this research: "${researchRes.text}" into the requested JSON schema. Provide a 'reasoning' for any value change.`,
+    contents: `Summarize this research: "${researchRes.text}" into JSON with "estimatedValue" (number), "updatedFacts" (array), and "reasoning" (string).`,
     config: {
       responseMimeType: 'application/json',
       responseSchema: {

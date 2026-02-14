@@ -64,7 +64,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
           <div>
             <div className="flex justify-between items-start">
               <h3 className="font-bold text-gray-900 leading-tight pr-2 truncate">
-                {item.title} <span className="text-gray-400 font-normal">#{item.subTitle}</span>
+                {item.title} <span className="text-gray-400 font-normal">{item.subTitle}</span>
               </h3>
               <div className="flex flex-col items-end">
                 <span className={`text-[11px] font-black whitespace-nowrap ${theme.text} ${theme.bg} px-2 py-1 rounded-lg`}>
@@ -85,7 +85,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
             </div>
 
             <p className="text-[10px] text-gray-400 mt-2 uppercase tracking-widest font-bold">
-              {item.provider} • {item.year}
+              {item.brand} • {item.year}
             </p>
 
             {item.facts && item.facts.length > 0 && (

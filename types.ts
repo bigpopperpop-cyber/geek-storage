@@ -2,7 +2,7 @@
 export type VaultType = 'sports' | 'comics' | 'fantasy' | 'coins';
 export type AppView = 'vault' | 'scan' | 'item' | 'reports';
 
-// Added ComicCondition type
+// Fix: Added ComicCondition type used in ComicForm.tsx
 export type ComicCondition = 'Gem Mint' | 'Mint' | 'Near Mint' | 'Very Fine' | 'Fine' | 'Very Good' | 'Good' | 'Fair' | 'Poor';
 
 export interface VaultItem {
@@ -11,7 +11,8 @@ export interface VaultItem {
   title: string;          // Player Name, Book Title, etc.
   subTitle: string;       // Set/Issue/Series
   year: string;
-  provider: string;       // Manufacturer/Publisher
+  brand: string;          // Manufacturer (Topps, Marvel, etc.)
+  cardNumber: string;     // Card # or Issue #
   significance: string;    // Rookie Card, 1st Appearance, etc.
   condition: string;
   estimatedValue: number;
@@ -20,7 +21,6 @@ export interface VaultItem {
   lastValued: string;
   image?: string;         // Base64 thumbnail
   sources?: { uri: string; title: string }[];
-  // Added missing properties required by components
   aiJustification?: string;
   keyFeatures?: string;
   notes?: string;
