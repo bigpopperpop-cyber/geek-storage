@@ -66,6 +66,18 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateItem = async (updatedItem: CollectionItem) => {
+    try {
+      await storage.saveItem(updatedItem);
+      setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+      setToastMessage("Vault data updated! ✨");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    } catch (err) {
+      console.error("Update failed:", err);
+    }
+  };
+
   const handleDeleteItem = async (id: string) => {
     if (confirm("Permanently delete this item? This action cannot be undone.")) {
       try {
@@ -162,7 +174,14 @@ const App: React.FC = () => {
             {view === 'collection' && (
               <div className="space-y-4 pb-24">
                 {filteredItems.length > 0 ? (
-                  filteredItems.map((item) => <ItemCard key={item.id} item={item} onDelete={handleDeleteItem} />)
+                  filteredItems.map((item) => (
+                    <ItemCard 
+                      key={item.id} 
+                      item={item} 
+                      onDelete={handleDeleteItem} 
+                      onUpdate={handleUpdateItem}
+                    />
+                  ))
                 ) : (
                   <div className="text-center py-20 text-gray-400">
                     <p className="font-bold">This Vault is Empty</p>

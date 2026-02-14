@@ -15,6 +15,9 @@ export interface CollectionItem {
   estimatedValue: number;
   aiJustification: string;
   dateAdded: string;
+  facts?: string[];    // New field for AI-generated facts
+  // Added sources field to track grounding metadata (URLs) from Google Search research
+  sources?: { title: string; uri: string }[];
 }
 
 export type AppView = 'collection' | 'add' | 'reports' | 'help';
