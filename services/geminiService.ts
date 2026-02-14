@@ -19,19 +19,24 @@ const extractJSON = (text: string) => {
  * 1. Prioritize Back-of-Card OCR (Stats, Numbers).
  * 2. Ground Market Research with Google Search.
  * 3. Extract structured JSON.
+ * 
+ * Optimization: Optimized for iPhone 14 Pro 3x Telephoto captures where text is 
+ * extremely sharp but might only show a portion of the card.
  */
 export const identifyAndAppraise = async (base64Image: string, category: VaultType) => {
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
 
-  const systemInstruction = `You are an expert ${category} cataloger and Market Analyst. Your goal is to identify items from images (front or back) and provide precise market data.
+  const systemInstruction = `You are a World-Class ${category} Cataloger and Market Analyst. 
+You specialize in identifying items from high-resolution, zoomed-in photos (Macro/Telephoto).
 
-Instructions:
-- Prioritize the 'Back': If the image contains a table of statistics, a year, and a card/issue number (e.g., #45), use these as primary identifiers.
-- OCR Requirement: Extract Name, Year, Brand/Manufacturer, and Card/Issue Number.
-- Search Grounding: Use Google Search Grounding to verify the specific market name and significance.
-- Key Status: Identify if it is a 'Key' item (Rookie, 1st Appearance, Rare Variety).
-- Glare Resilience: Ignore monitor glare or plastic reflections.`;
+Instructions for Telephoto/3x Zoom Shots:
+- Fragment Awareness: If the image is a zoomed-in shot (common on iPhone 14 Pro 3x), look for the Card Number (e.g., #245), Player Name fragments, and the Year printed in the fine print or stat lines.
+- Prioritize the 'Back': Small card numbers and stat blocks are the "fingerprint" of the item. Use them as primary identifiers even if the full card isn't in frame.
+- OCR Requirement: Extract Name, Year, Brand/Manufacturer, and Card/Issue Number from even blurry or high-contrast macro shots.
+- Search Grounding: Cross-reference the extracted card number and year with Google Search to confirm the set (e.g., '1992 Topps Stadium Club #345').
+- Key Status: Flag Rookie (RC), 1st Appearances, or Error varieties immediately.
+- Glare Resilience: Disregard reflections from plastic 'penny sleeves' or top-loaders.`;
 
   // Step 1: Visual Identification & Verification via Search
   const visionRes = await ai.models.generateContent({
@@ -39,7 +44,7 @@ Instructions:
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-        { text: `Identify this ${category} item precisely. Focus on text/OCR if it's the back of the item.` }
+        { text: `Precisely identify this ${category} item. This might be a high-detail 3x zoom macro shot of a specific text area (like the card number or stat block). Extract all identifying markers.` }
       ]
     },
     config: {
@@ -54,8 +59,8 @@ Instructions:
   // Step 2: Deep Market Appraisal
   const researchRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Research current market value, auction results, and significance for: "${identity}". 
-    Look for "Key" status (Rookie/1st App) and find 3 historical/market facts.`,
+    contents: `Based on this ID: "${identity}", research current market value (raw/ungraded), auction results, and collector significance. 
+    Confirm if it's a "Key" item (Rookie, 1st App, Rare Variation). Find 3 specific market facts.`,
     config: { 
       systemInstruction,
       tools: [{ googleSearch: {} }] 
@@ -73,7 +78,7 @@ Instructions:
   // Step 3: Structured Data Output
   const finalRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Based on this research: "${researchRes.text}", fill the following JSON structure exactly. Value should be a numeric USD estimate.
+    contents: `Based on this research: "${researchRes.text}", fill the following JSON structure exactly. Value should be a numeric USD estimate for a raw version.
     
     JSON Template:
     {
@@ -81,7 +86,7 @@ Instructions:
       "year": "YYYY",
       "brand": "Brand/Manufacturer",
       "cardNumber": "Number",
-      "significance": "One-sentence collector significance (e.g. Rookie Card)",
+      "significance": "One-sentence significance (e.g. Rookie Card / First Appearance)",
       "estimatedValue": 0.00,
       "facts": ["Fact 1", "Fact 2", "Fact 3"]
     }`,
@@ -122,7 +127,7 @@ Instructions:
 
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
-  const query = `Latest auction prices for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}).`;
+  const query = `Research latest auction prices, market value, and specific collector significance (Rookie status, 1st appearances, rarity, HOF status) for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}). Use Google Search.`;
 
   const researchRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -136,7 +141,9 @@ export const reEvaluateItem = async (item: VaultItem) => {
 
   const formatRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Summarize this research: "${researchRes.text}" into JSON with "estimatedValue" (number), "updatedFacts" (array), and "reasoning" (string).`,
+    contents: `Summarize this research: "${researchRes.text}" into JSON. 
+    Crucially, check if this is a "Key" item (Rookie, 1st App) and update the significance.
+    Include "estimatedValue" (number), "updatedFacts" (array), "significance" (string), and "reasoning" (string).`,
     config: {
       responseMimeType: 'application/json',
       responseSchema: {
@@ -144,9 +151,10 @@ export const reEvaluateItem = async (item: VaultItem) => {
         properties: {
           estimatedValue: { type: Type.NUMBER },
           updatedFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
+          significance: { type: Type.STRING },
           reasoning: { type: Type.STRING }
         },
-        required: ["estimatedValue", "updatedFacts", "reasoning"]
+        required: ["estimatedValue", "updatedFacts", "significance", "reasoning"]
       }
     }
   });

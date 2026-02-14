@@ -23,6 +23,7 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
           ...item,
           estimatedValue: result.estimatedValue,
           facts: result.updatedFacts || item.facts,
+          significance: result.significance || item.significance,
           lastValued: new Date().toISOString(),
           sources: result.sources || item.sources,
           aiJustification: result.reasoning || item.aiJustification
@@ -38,7 +39,11 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
   return (
     <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-100 flex flex-col animate-in fade-in zoom-in-95 duration-300">
       <div className="relative aspect-[4/3] bg-slate-900 group">
-        <img src={item.image} className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" alt={item.title} />
+        {item.image ? (
+          <img src={item.image} className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" alt={item.title} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-6xl opacity-20">🖼️</div>
+        )}
         <button 
           onClick={onBack}
           className="absolute top-6 left-6 bg-black/50 text-white p-3 rounded-full backdrop-blur-lg hover:bg-black/70 transition-all active:scale-90"
@@ -121,16 +126,19 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
           <button
             onClick={handleReValue}
             disabled={isUpdating}
-            className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+            className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50"
           >
-            {isUpdating ? (
-              <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            )}
-            {isUpdating ? 'Re-Appraising...' : 'Refresh Market Data'}
+            <div className="flex items-center gap-3">
+              {isUpdating ? (
+                <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              )}
+              <span>{isUpdating ? 'Researching...' : 'Deep AI Market Research'}</span>
+            </div>
+            {!isUpdating && <span className="text-[9px] normal-case opacity-60">Finds Rookie status, 1st appearances & auction history</span>}
           </button>
           
           <button
