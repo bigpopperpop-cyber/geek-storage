@@ -15,63 +15,48 @@ const extractJSON = (text: string) => {
 };
 
 /**
- * Identifies a collectible from an image and researches its market value/significance.
- * Uses Google Search grounding to find real-time market data.
+ * Identify item + Deep Market Search for Significance (Rookie/1st App)
  */
-export const identifyCollectible = async (base64Image: string, category: VaultType) => {
+export const identifyAndAppraise = async (base64Image: string, category: VaultType) => {
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
 
-  // Step 1: Visual Identification - Fingerprint the item
-  const visionPrompt = `Identify this ${category} collectible. Be specific about the title, player/character name, set/series name, issue/card number, and year.`;
+  // 1. Identify visually
   const visionRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-        { text: visionPrompt }
+        { text: `Precisely identify this ${category} item. Return title, year, and manufacturer.` }
       ]
     }
   });
 
   const identity = visionRes.text;
-  if (!identity) throw new Error("Could not identify image");
+  if (!identity) throw new Error("ID failed");
 
-  // Step 2: Grounded Market Research
-  // We use Google Search to find current prices and historical significance
-  const researchPrompt = `Research real-time market details and collector significance for: "${identity}" in the ${category} category.
-  Specifically look for:
-  - Recent sold prices (eBay, auction houses).
-  - Key traits: Is it a Rookie Card? 1st appearance? Rare mint mark? Variant/Holo?
-  - 3 unique historical facts about this specific release.`;
-
+  // 2. Grounded Market Research
   const researchRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: researchPrompt,
+    contents: `Research current market value and collector significance for: "${identity}". 
+    Specifically look for "Key" status: Is it a Rookie Card? Is it a 1st appearance of a character? Is it a rare variety? 
+    Find 3 historical facts.`,
     config: { tools: [{ googleSearch: {} }] }
   });
 
-  // Extract grounding URLs as per requirements
   const groundingChunks = researchRes.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
   const sources = groundingChunks
     .filter((chunk: any) => chunk.web)
     .map((chunk: any) => ({
-      title: chunk.web.title || "Market Research",
+      title: chunk.web.title || "Market Source",
       uri: chunk.web.uri
     }));
 
-  // Step 3: Structured Data Synthesis
-  // Take the grounded research and turn it into a clean database object
-  const finalPrompt = `Based on this research data: "${researchRes.text}", structure the information into a JSON object.
-  
-  JSON Schema Requirements:
-  - "estimatedValue": Current market average in USD.
-  - "significance": A punchy one-sentence summary of why collectors want this (e.g., "Highly coveted 1st appearance of Venom").
-  - "facts": exactly 3 interesting historical or market facts.`;
-
+  // 3. Final Structure
   const finalRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: finalPrompt,
+    contents: `Based on this research: "${researchRes.text}", fill this JSON.
+    Value should be a number. Significance should mention things like Rookie or 1st Appearance if found.`,
     config: {
       responseMimeType: 'application/json',
       responseSchema: {
@@ -82,7 +67,6 @@ export const identifyCollectible = async (base64Image: string, category: VaultTy
           year: { type: Type.STRING },
           provider: { type: Type.STRING },
           significance: { type: Type.STRING },
-          keyFeatures: { type: Type.STRING },
           estimatedValue: { type: Type.NUMBER },
           facts: { type: Type.ARRAY, items: { type: Type.STRING } }
         },
@@ -95,18 +79,29 @@ export const identifyCollectible = async (base64Image: string, category: VaultTy
   return data ? { ...data, sources } : null;
 };
 
-/**
- * Re-evaluates the price and updates facts for an existing item using Google Search.
- */
+// Refactored to separate search from JSON formatting and added reasoning
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
-  const query = `Latest market value and auction prices for: ${item.year} ${item.provider} ${item.title} ${item.subTitle} (${item.category}). Provide reasoning for the price change.`;
+  const query = `Current market price and auction history for: ${item.year} ${item.provider} ${item.title} ${item.subTitle} (${item.category}).`;
 
-  const res = await ai.models.generateContent({
+  // 1. Search for current market data
+  const researchRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: query,
     config: { 
-      tools: [{ googleSearch: {} }],
+      tools: [{ googleSearch: {} }]
+    }
+  });
+
+  const sources = researchRes.candidates?.[0]?.groundingMetadata?.groundingChunks
+    ?.filter((c: any) => c.web)
+    ?.map((c: any) => ({ title: c.web.title || "Market Source", uri: c.web.uri })) || [];
+
+  // 2. Format research into structured response
+  const formatRes = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Summarize this research: "${researchRes.text}" into the requested JSON schema. Provide a brief 'reasoning' for the value change.`,
+    config: {
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
@@ -120,15 +115,6 @@ export const reEvaluateItem = async (item: VaultItem) => {
     }
   });
 
-  const data = extractJSON(res.text);
-  
-  const groundingChunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-  const sources = groundingChunks
-    .filter((chunk: any) => chunk.web)
-    .map((chunk: any) => ({
-      title: chunk.web.title || 'Market Source',
-      uri: chunk.web.uri
-    }));
-
+  const data = extractJSON(formatRes.text);
   return data ? { ...data, sources } : null;
 };

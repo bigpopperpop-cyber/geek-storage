@@ -1,7 +1,8 @@
 
 import React, { useState, useRef } from 'react';
 import { VaultItem, ComicCondition, VaultType } from '../types';
-import { identifyCollectible } from '../services/geminiService';
+// Corrected: Imported identifyAndAppraise instead of identifyCollectible
+import { identifyAndAppraise } from '../services/geminiService';
 
 interface ItemFormProps {
   onSave: (item: VaultItem) => void;
@@ -39,8 +40,8 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         setIdentifying(true);
         setStatusMsg("Analyzing significance...");
         try {
-          // Corrected: Imported identifyCollectible as identifyItem was not exported
-          const details = await identifyCollectible(rawBase64, activeVault);
+          // Corrected: Used identifyAndAppraise
+          const details = await identifyAndAppraise(rawBase64, activeVault);
           
           if (details) {
             setFormData(prev => ({
@@ -49,7 +50,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               subTitle: details.subTitle || '',
               provider: details.provider || '',
               year: details.year || '',
-              keyFeatures: details.keyFeatures || details.significance || '',
+              keyFeatures: details.significance || '',
               estimatedValue: details.estimatedValue?.toString() || '',
               facts: details.facts || [],
             }));
@@ -72,7 +73,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     e.preventDefault();
     if (!formData.title) return;
 
-    // Fixed: Mapped form data to VaultItem interface correctly
+    // Fixed: Corrected property mapping to match VaultItem interface
     const newItem: VaultItem = {
       id: generateId(),
       category: activeVault,

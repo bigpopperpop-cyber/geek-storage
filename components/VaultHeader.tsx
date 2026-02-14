@@ -4,12 +4,12 @@ import { AppView, VaultType, VAULT_CONFIG } from '../types';
 
 interface HeaderProps {
   view: AppView;
-  setView: (v: AppView) => void;
   activeVault: VaultType;
   totalValue: number;
+  onBack: () => void;
 }
 
-const VaultHeader: React.FC<HeaderProps> = ({ view, setView, activeVault, totalValue }) => {
+const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, onBack }) => {
   const config = VAULT_CONFIG[activeVault];
 
   return (
@@ -26,7 +26,7 @@ const VaultHeader: React.FC<HeaderProps> = ({ view, setView, activeVault, totalV
         
         {view !== 'vault' && (
           <button 
-            onClick={() => setView('vault')}
+            onClick={onBack}
             className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
