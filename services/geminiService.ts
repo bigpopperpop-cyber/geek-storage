@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { CollectionItem, VaultType } from "../types";
 
@@ -28,10 +27,9 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
     const mimeType = mimePart.split(':')[1] || 'image/jpeg';
     const base64Content = base64Data.split(',')[1];
 
-    console.log(`[Vault AI] Engaging Gemini 3 Pro Vision for ${vault}...`);
+    console.log(`[Vault AI] Engaging Gemini 3 Pro Vision for ${vault} (High-Precision OCR Mode)...`);
 
-    // Using PRO for identification because FLASH is failing on complex card patterns.
-    // Added thinkingBudget to allow the model to analyze the image thoroughly.
+    // We use a high thinking budget to ensure the AI parses the tiny text on card backs/fronts
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: {
@@ -43,29 +41,36 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
             }
           },
           {
-            text: `You are the world's leading expert in ${vault} collectibles. 
-            Analyze this image carefully. If it's a card, it might be the front or the back.
+            text: `You are a master identification expert for ${vault.toUpperCase()} collectibles. 
+            Analyze this image with extreme focus on textual metadata.
             
-            1. Look for Player/Character names.
-            2. Look for Set years and brand names (Topps, Panini, Upper Deck, Marvel, DC).
-            3. Look for card numbers (e.g., #23, #451).
-            4. Identify any specific parallels (Holo, Silver, Variant).
+            IDENTIFICATION PRIORITIES:
+            1. SET NAME & CODE: Identify the exact set (e.g., "Silver Tempest", "Modern Horizons 2", "1990 Score"). Look for set codes/symbols (e.g., "SWSH12", "MTG Set Symbol").
+            2. CARD NUMBER: Locate the collector number (e.g., "142/195", "No. 23", "#4"). This is often at the bottom or in a corner.
+            3. BRAND/TCG: Identify the manufacturer or game (Pokémon, Magic: The Gathering, Topps, Panini, Marvel).
+            4. SPECIFIC NAME: Identify the exact name of the character, player, or item.
+            5. YEAR: Find the copyright year (usually in small print at the very bottom).
             
-            Identify the item and return ONLY this JSON:
+            Note: If this is the back of a card, use the legal text and card number as the primary source of truth.
+            
+            Return ONLY this JSON:
             {
-              "title": "Main Title or Player Name",
-              "subTitle": "Card # or Issue #",
-              "provider": "Manufacturer or Publisher",
-              "year": "Year of Release",
-              "keyFeatures": "Notable traits (e.g. Rookie, 1st Appearance, Refractor)",
+              "title": "Exact Card Name or Player Name",
+              "subTitle": "Set Name, Number, and Rarity/Code",
+              "provider": "Manufacturer or TCG Brand",
+              "year": "YYYY",
+              "keyFeatures": "Notable traits (Holo, Rookie, 1st Edition, Full Art)",
               "condition": "Visual condition estimate"
             }`
           }
         ]
       },
       config: {
-        thinkingConfig: { thinkingBudget: 4000 },
-        systemInstruction: `You are an expert ${vault} identifier. You can read tiny text and identify rare items from any angle.`
+        thinkingConfig: { thinkingBudget: 12000 },
+        systemInstruction: `You are the world's leading expert in ${vault} identification. 
+        For Fantasy Vault: You are a specialist in TCGs (Pokémon, Magic, Yu-Gi-Oh!, Lorcana). You know every set symbol and card numbering convention.
+        For Sports Vault: You are a professional card grader. You prioritize the card back for precise set and number identification.
+        You are immune to camera glare and poor lighting; you extract data through patterns and deep OCR.`
       }
     });
 
@@ -82,29 +87,31 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
 export const assessItemValue = async (item: Partial<CollectionItem>, vault: VaultType): Promise<{ value: number; justification: string }> => {
   try {
     const ai = getAIInstance();
-    // Flash is fine for the text-based search task of valuation
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
           {
-            text: `VALUATION: Search for real sold prices for this ${vault} item.
-            Item: ${item.title} ${item.subTitle}
+            text: `VALUATION: Search market data for this ${vault} item.
+            Item: ${item.title}
+            ID/Set: ${item.subTitle}
             Year: ${item.year}
             Condition: ${item.condition}
             Features: ${item.keyFeatures}
             
+            Look for recent sales of this exact card number and set.
+            
             Return JSON:
             {
               "value": 0.00,
-              "justification": "Short explanation"
+              "justification": "Short reason why based on sold listings"
             }`
           }
         ]
       },
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: "You are a professional market analyst."
+        systemInstruction: "You are a professional market analyst for high-end collectibles."
       }
     });
 
@@ -114,7 +121,7 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
     const result = extractJSON(text);
     return {
       value: result?.value || 0,
-      justification: result?.justification || "Market average."
+      justification: result?.justification || "Calculated from market averages."
     };
   } catch (error) {
     console.error("Valuation failed:", error);

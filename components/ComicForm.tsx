@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { CollectionItem, ComicCondition, VaultType } from '../types';
 import { assessItemValue, identifyItemFromImage } from '../services/geminiService';
@@ -18,7 +17,6 @@ const prepareImage = (base64: string): Promise<string> => {
     img.src = base64;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      // 3K res is perfect for Gemini 3 Pro
       const maxWidth = 3072;
       const quality = 0.98;
       
@@ -67,11 +65,13 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isCardVault = activeVault === 'sports' || activeVault === 'fantasy';
+
   const labels = {
-    comics: { title: 'Comic Title', sub: 'Issue #', provider: 'Publisher', accent: 'bg-indigo-600' },
-    sports: { title: 'Player Name', sub: 'Set / Number', provider: 'Manufacturer', accent: 'bg-emerald-600' },
-    fantasy: { title: 'Card Name', sub: 'Set / Edition', provider: 'TCG / Game', accent: 'bg-amber-500' },
-    coins: { title: 'Denomination', sub: 'Mint Mark / Variety', provider: 'Grading Service', accent: 'bg-yellow-600' },
+    comics: { title: 'Comic Title', sub: 'Issue #', provider: 'Publisher', accent: 'bg-indigo-600', scanHint: 'Snap Cover' },
+    sports: { title: 'Player Name', sub: 'Set & Card #', provider: 'Manufacturer', accent: 'bg-emerald-600', scanHint: 'Scan Card Back' },
+    fantasy: { title: 'Card Name', sub: 'Set & Edition', provider: 'TCG / Brand', accent: 'bg-amber-500', scanHint: 'Scan Card Back' },
+    coins: { title: 'Denomination', sub: 'Mint Mark / Variety', provider: 'Grading Service', accent: 'bg-yellow-600', scanHint: 'Snap Coin' },
   }[activeVault];
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,11 +82,11 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         const rawBase64 = reader.result as string;
         
         setIdentifying(true);
-        setStatusMsg("Engaging Pro Brain...");
+        setStatusMsg("Initializing 3K Vision...");
         try {
           const processedImg = await prepareImage(rawBase64);
           
-          setStatusMsg("Analyzing Item Details...");
+          setStatusMsg("Analyzing Small Print...");
           const details = await identifyItemFromImage(processedImg, activeVault);
           
           if (details) {
@@ -100,10 +100,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               condition: (details.condition as ComicCondition) || prev.condition,
             }));
             setHasScanned(true);
-            setStatusMsg("Identification Complete!");
+            setStatusMsg("Details Extracted!");
             setTimeout(() => setStatusMsg(null), 3000);
           } else {
-            setStatusMsg("AI was unsure. Check manual entry.");
+            setStatusMsg("AI couldn't read data. Try card back.");
           }
         } catch (err) {
           console.error("Auto-identification failed", err);
@@ -121,7 +121,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     if (!formData.title) return;
 
     setLoading(true);
-    setStatusMsg("Consulting market data...");
+    setStatusMsg("Calculating value...");
     try {
       const valuation = await assessItemValue(formData, activeVault);
 
@@ -130,7 +130,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         category: activeVault,
         ...formData,
         estimatedValue: typeof valuation.value === 'number' ? valuation.value : 0,
-        aiJustification: valuation.justification || "Market estimate",
+        aiJustification: valuation.justification || "Grounded estimate",
         dateAdded: new Date().toISOString(),
       };
 
@@ -158,8 +158,8 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-24">
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-        <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-          <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-gray-800">
+          <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           Add to {activeVault.charAt(0).toUpperCase() + activeVault.slice(1)} Vault
@@ -168,26 +168,26 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         <div className="mb-6 text-center">
           <div 
             onClick={() => !identifying && !loading && fileInputRef.current?.click()}
-            className={`w-full aspect-square max-w-[140px] mx-auto bg-gray-50 rounded-full border-4 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer relative transition-all active:scale-95 ${identifying || loading ? 'cursor-not-allowed opacity-80' : 'hover:border-indigo-400 shadow-sm'}`}
+            className={`w-full aspect-square max-w-[150px] mx-auto bg-gray-50 rounded-full border-4 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer relative transition-all active:scale-95 ${identifying || loading ? 'cursor-not-allowed opacity-80' : 'hover:border-indigo-400 shadow-sm'}`}
           >
             {hasScanned && !identifying ? (
               <div className="flex flex-col items-center text-green-500">
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-[10px] font-black mt-2 uppercase tracking-widest text-green-600">Pro Scan OK</span>
+                <span className="text-[10px] font-black mt-2 uppercase tracking-widest text-green-600">Scan OK</span>
               </div>
             ) : identifying ? (
               <div className="flex flex-col items-center">
                 <div className="w-10 h-10 border-4 border-gray-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                <span className="text-[10px] font-black text-indigo-600 mt-3 uppercase tracking-widest">Thinking...</span>
+                <span className="text-[10px] font-black text-indigo-600 mt-3 uppercase tracking-widest">Reading...</span>
               </div>
             ) : (
-              <div className="flex flex-col items-center text-gray-300">
-                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col items-center text-gray-400">
+                <svg className="w-10 h-10 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 </svg>
-                <span className="text-[10px] font-black mt-2 uppercase tracking-widest italic">Snap Card</span>
+                <span className="text-[10px] font-black uppercase tracking-widest italic">{labels.scanHint}</span>
               </div>
             )}
             <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
@@ -207,7 +207,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
-              placeholder="Awaiting Scan..."
+              placeholder="Detecting..."
             />
           </div>
 
@@ -234,13 +234,13 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
           </div>
 
           <div className="col-span-2">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Significance / Rarity</label>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Traits / Rarity</label>
             <input
               type="text"
               className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.keyFeatures}
               onChange={(e) => setFormData({...formData, keyFeatures: e.target.value})}
-              placeholder="e.g. Rookie Card, Holo, etc."
+              placeholder="e.g. Rookie, Holo, Variant"
             />
           </div>
 
