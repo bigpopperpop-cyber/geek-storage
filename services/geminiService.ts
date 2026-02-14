@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { CollectionItem, VaultType } from "../types";
 
@@ -7,16 +8,14 @@ const getAIInstance = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-const contextMap = {
-  comics: "You are a professional comic book appraiser. You have expert knowledge of every comic cover ever printed and can identify them from even partial photos.",
-  sports: "You are a top-tier sports card authenticator. You recognize players, card sets, and years instantly from visual cues and tiny text.",
-  fantasy: "You are a master TCG historian. You know every set and rarity symbol for Pokemon, Magic, and Yu-Gi-Oh.",
-  coins: "You are a professional numismatist. You identify coins, mint marks, and varieties with surgical precision."
+// Robust identification instructions per vault
+const identificationProtocols = {
+  comics: "Identify the COMIC BOOK. Extract: Title, Issue Number, Month/Year, and Publisher. Ignore glares.",
+  sports: "Identify the SPORTS CARD. Extract: Player Name, Year, Set Name (Topps, Panini, etc.), and Card Number. Read tiny text.",
+  fantasy: "Identify the TCG CARD. Extract: Card Name, Set Code, and Edition. Look for rarity symbols.",
+  coins: "Identify the COIN. Extract: Denomination, Mint Mark, and Year. Focus on fine metal details."
 };
 
-/**
- * Clean AI response to extract JSON if it's wrapped in markdown blocks
- */
 const extractJSON = (text: string) => {
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -37,7 +36,7 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
     const mimeType = mimePart.split(':')[1] || 'image/jpeg';
     const base64Content = base64Data.split(',')[1];
 
-    console.log(`[Vault AI] Identifying ${vault} item with 3K High-Res Vision...`);
+    console.log(`[Vault AI] Initiating Visual Identification for ${vault}...`);
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -50,26 +49,32 @@ export const identifyItemFromImage = async (base64Data: string, vault: VaultType
             }
           },
           {
-            text: `Please identify this ${vault} item. 
-            The image is a high-resolution 3K scan. Focus on reading all visible text (Player Name, Team, Year, Set Name, Issue Number).
+            text: `SYSTEM MANDATE: You are a high-speed vision identification engine.
             
-            Identify specific variants (e.g., "Silver Prizm", "1st Edition", "Variant Cover").
+            TASK: Identify this ${vault.toUpperCase()} item.
             
-            Return the details in this JSON format:
+            IDENTIFICATION PROTOCOL:
+            1. Perform deep OCR to read ALL text on the item.
+            2. Match visual patterns against historical databases.
+            3. Ignore photographic artifacts (glares, shadows, blur).
+            
+            ${identificationProtocols[vault]}
+            
+            Return ONLY a JSON object:
             {
-              "title": "Exact Title/Player Name",
-              "subTitle": "ID Number or Set Name",
-              "provider": "Publisher/Manufacturer",
+              "title": "Main Name/Title",
+              "subTitle": "ID Number/Set Info",
+              "provider": "Company/Publisher",
               "year": "YYYY",
-              "keyFeatures": "Notable attributes (e.g., Rookie Card, Holographic)",
-              "condition": "Visual Condition Estimate"
+              "keyFeatures": "Notable traits (Rookie, 1st App, Parallel)",
+              "condition": "Visual Grade"
             }`
           }
         ]
       },
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: contextMap[vault]
+        systemInstruction: "You are an expert ${vault} identifier. You never fail to identify an item from a high-res image. You focus on the text and visual markings."
       }
     });
 
@@ -91,38 +96,40 @@ export const assessItemValue = async (item: Partial<CollectionItem>, vault: Vaul
       contents: {
         parts: [
           {
-            text: `Find the current market value for this ${vault} item:
+            text: `VALUATION REQUEST: Search market data for this ${vault} item.
+            
             Item: ${item.title}
-            ID: ${item.subTitle}
+            Sub: ${item.subTitle}
             Year: ${item.year}
             Condition: ${item.condition}
+            Features: ${item.keyFeatures}
             
-            Search for recent sold listings on eBay or specialized auction sites.
+            Provide the average current market price and justification.
             
             Return JSON:
             {
               "value": 0.00,
-              "justification": "Explanation of price based on recent sales"
+              "justification": "Short reason"
             }`
           }
         ]
       },
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: `You are a real-time market analyst for ${vault} collectibles.`
+        systemInstruction: "You are a market data analyst specializing in collectibles."
       }
     });
 
     const text = response.text;
-    if (!text) return { value: 0, justification: "Valuation unavailable." };
+    if (!text) return { value: 0, justification: "Valuation failed." };
     
     const result = extractJSON(text);
     return {
       value: result?.value || 0,
-      justification: result?.justification || "Calculated from market averages."
+      justification: result?.justification || "Market average."
     };
   } catch (error) {
     console.error("Valuation failed:", error);
-    return { value: 0, justification: "Error estimating value." };
+    return { value: 0, justification: "Error." };
   }
 };

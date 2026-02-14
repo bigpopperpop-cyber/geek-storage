@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { CollectionItem, ComicCondition, VaultType } from '../types';
 import { assessItemValue, identifyItemFromImage } from '../services/geminiService';
@@ -17,7 +18,7 @@ const prepareImage = (base64: string): Promise<string> => {
     img.src = base64;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      // 3072px provides 9MP resolution, massive detail for reading card text
+      // 3072px for 3K high-res reading
       const maxWidth = 3072;
       const quality = 0.98;
       
@@ -81,14 +82,14 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         const rawBase64 = reader.result as string;
         
         setIdentifying(true);
-        setStatusMsg("Generating 3K Scan...");
+        setStatusMsg("Analyzing 3K Vision Data...");
         try {
           const processedImg = await prepareImage(rawBase64);
           
-          setStatusMsg("AI Identification Active...");
+          setStatusMsg("AI Identification Live...");
           const details = await identifyItemFromImage(processedImg, activeVault);
           
-          if (details && details.title) {
+          if (details) {
             setFormData(prev => ({
               ...prev,
               title: details.title || '',
@@ -99,14 +100,14 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
               condition: (details.condition as ComicCondition) || prev.condition,
             }));
             setHasScanned(true);
-            setStatusMsg("AI Identified Successfully!");
+            setStatusMsg("AI Scan Successful!");
             setTimeout(() => setStatusMsg(null), 3000);
           } else {
-            setStatusMsg("AI identification missed. Verify details.");
+            setStatusMsg("Partial identification. Manual verify.");
           }
         } catch (err) {
           console.error("Auto-identification failed", err);
-          setStatusMsg("Scan Error. Manual entry active.");
+          setStatusMsg("Scan timeout. Manual entry ready.");
         } finally {
           setIdentifying(false);
         }
@@ -120,7 +121,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
     if (!formData.title) return;
 
     setLoading(true);
-    setStatusMsg("Consulting market values...");
+    setStatusMsg("Consulting real-time market...");
     try {
       const valuation = await assessItemValue(formData, activeVault);
 
@@ -129,7 +130,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         category: activeVault,
         ...formData,
         estimatedValue: typeof valuation.value === 'number' ? valuation.value : 0,
-        aiJustification: valuation.justification || "Manual entry",
+        aiJustification: valuation.justification || "Grounded estimate",
         dateAdded: new Date().toISOString(),
       };
 
@@ -141,7 +142,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
         category: activeVault,
         ...formData,
         estimatedValue: 0,
-        aiJustification: "Valuation error",
+        aiJustification: "Manual estimate",
         dateAdded: new Date().toISOString(),
       });
     } finally {
@@ -161,7 +162,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
           <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Add to Vault
+          Add to {activeVault.charAt(0).toUpperCase() + activeVault.slice(1)} Vault
         </h2>
 
         <div className="mb-6 text-center">
@@ -174,25 +175,25 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-[10px] font-black mt-2 uppercase tracking-widest">Scanned</span>
+                <span className="text-[10px] font-black mt-2 uppercase tracking-widest">Identified</span>
               </div>
             ) : identifying ? (
               <div className="flex flex-col items-center">
                 <div className="w-10 h-10 border-4 border-gray-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                <span className="text-[10px] font-black text-indigo-600 mt-3 uppercase tracking-widest">Scanning</span>
+                <span className="text-[10px] font-black text-indigo-600 mt-3 uppercase tracking-widest">AI Scanning</span>
               </div>
             ) : (
               <div className="flex flex-col items-center text-gray-300">
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                 </svg>
-                <span className="text-[10px] font-black mt-2 uppercase tracking-widest">Ultra Scan</span>
+                <span className="text-[10px] font-black mt-2 uppercase tracking-widest italic">Vision Scan</span>
               </div>
             )}
             <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
           </div>
           {statusMsg && (
-            <div className={`inline-block px-3 py-1.5 rounded-xl mt-4 text-[10px] font-bold uppercase tracking-tight border animate-in fade-in zoom-in-95 ${statusMsg.includes('Error') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
+            <div className={`inline-block px-3 py-1.5 rounded-xl mt-4 text-[10px] font-black uppercase tracking-tight border animate-pulse ${statusMsg.includes('Error') ? 'bg-red-50 text-red-600 border-red-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100'}`}>
               {statusMsg}
             </div>
           )}
@@ -203,10 +204,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.title}</label>
             <input
               type="text" required
-              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse' : ''}`}
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
-              placeholder="Title / Player Name"
+              placeholder="Detecting Name..."
             />
           </div>
 
@@ -214,10 +215,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.sub}</label>
             <input
               type="text" required
-              className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200"
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.subTitle}
               onChange={(e) => setFormData({...formData, subTitle: e.target.value})}
-              placeholder="# / Set"
+              placeholder="Detecting ID..."
             />
           </div>
 
@@ -225,7 +226,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Year</label>
             <input
               type="text"
-              className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200"
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.year}
               onChange={(e) => setFormData({...formData, year: e.target.value})}
               placeholder="YYYY"
@@ -236,10 +237,10 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Significance / Rarity</label>
             <input
               type="text"
-              className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200"
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.keyFeatures}
               onChange={(e) => setFormData({...formData, keyFeatures: e.target.value})}
-              placeholder="e.g. Rookie Card, Holo"
+              placeholder="e.g. Rookie Card, Foil, etc."
             />
           </div>
 
@@ -247,7 +248,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ onSave, activeVault }) => {
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{labels.provider}</label>
             <input
               type="text"
-              className="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200"
+              className={`w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-gray-200 transition-all ${identifying ? 'animate-pulse opacity-50' : ''}`}
               value={formData.provider}
               onChange={(e) => setFormData({...formData, provider: e.target.value})}
               placeholder="Brand / Publisher"
