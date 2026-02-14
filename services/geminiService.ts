@@ -16,13 +16,14 @@ const extractJSON = (text: string) => {
 
 /**
  * Identifies a collectible from an image and researches its market value/significance.
+ * Uses Google Search grounding to find real-time market data.
  */
 export const identifyCollectible = async (base64Image: string, category: VaultType) => {
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
 
-  // Step 1: Visual Identification
-  const visionPrompt = `Identify this ${category} collectible. Provide the main title, set/series, year, and manufacturer.`;
+  // Step 1: Visual Identification - Fingerprint the item
+  const visionPrompt = `Identify this ${category} collectible. Be specific about the title, player/character name, set/series name, issue/card number, and year.`;
   const visionRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: {
@@ -36,12 +37,13 @@ export const identifyCollectible = async (base64Image: string, category: VaultTy
   const identity = visionRes.text;
   if (!identity) throw new Error("Could not identify image");
 
-  // Step 2: Grounded Research
-  const researchPrompt = `Research market details for: "${identity}" in the ${category} category. 
-  Find:
-  1. Current market value range.
-  2. Collector significance (e.g., Is it a Rookie Card? 1st appearance of a character? Rare mint mark?).
-  3. 3-4 interesting historical facts.`;
+  // Step 2: Grounded Market Research
+  // We use Google Search to find current prices and historical significance
+  const researchPrompt = `Research real-time market details and collector significance for: "${identity}" in the ${category} category.
+  Specifically look for:
+  - Recent sold prices (eBay, auction houses).
+  - Key traits: Is it a Rookie Card? 1st appearance? Rare mint mark? Variant/Holo?
+  - 3 unique historical facts about this specific release.`;
 
   const researchRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -49,20 +51,23 @@ export const identifyCollectible = async (base64Image: string, category: VaultTy
     config: { tools: [{ googleSearch: {} }] }
   });
 
-  // Step 3: Structured Output
-  const finalPrompt = `Based on this research: "${researchRes.text}", output a clean JSON object for a database.
+  // Extract grounding URLs as per requirements
+  const groundingChunks = researchRes.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = groundingChunks
+    .filter((chunk: any) => chunk.web)
+    .map((chunk: any) => ({
+      title: chunk.web.title || "Market Research",
+      uri: chunk.web.uri
+    }));
+
+  // Step 3: Structured Data Synthesis
+  // Take the grounded research and turn it into a clean database object
+  const finalPrompt = `Based on this research data: "${researchRes.text}", structure the information into a JSON object.
   
-  JSON Schema:
-  {
-    "title": "Main Name",
-    "subTitle": "Set/Series/Issue #",
-    "year": "YYYY",
-    "provider": "Manufacturer/Publisher",
-    "significance": "Key traits like Rookie, 1st App, etc.",
-    "keyFeatures": "Summary of significance",
-    "estimatedValue": 0.00,
-    "facts": ["Fact 1", "Fact 2", "Fact 3"]
-  }`;
+  JSON Schema Requirements:
+  - "estimatedValue": Current market average in USD.
+  - "significance": A punchy one-sentence summary of why collectors want this (e.g., "Highly coveted 1st appearance of Venom").
+  - "facts": exactly 3 interesting historical or market facts.`;
 
   const finalRes = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -80,20 +85,22 @@ export const identifyCollectible = async (base64Image: string, category: VaultTy
           keyFeatures: { type: Type.STRING },
           estimatedValue: { type: Type.NUMBER },
           facts: { type: Type.ARRAY, items: { type: Type.STRING } }
-        }
+        },
+        required: ["title", "subTitle", "year", "provider", "significance", "estimatedValue", "facts"]
       }
     }
   });
 
-  return extractJSON(finalRes.text);
+  const data = extractJSON(finalRes.text);
+  return data ? { ...data, sources } : null;
 };
 
 /**
- * Re-evaluates the price and updates facts for an existing item.
+ * Re-evaluates the price and updates facts for an existing item using Google Search.
  */
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
-  const query = `Latest auction prices and market status for: ${item.year} ${item.provider} ${item.title} ${item.subTitle} (${item.category}).`;
+  const query = `Latest market value and auction prices for: ${item.year} ${item.provider} ${item.title} ${item.subTitle} (${item.category}). Provide reasoning for the price change.`;
 
   const res = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -107,24 +114,21 @@ export const reEvaluateItem = async (item: VaultItem) => {
           estimatedValue: { type: Type.NUMBER },
           updatedFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
           reasoning: { type: Type.STRING }
-        }
+        },
+        required: ["estimatedValue", "updatedFacts", "reasoning"]
       }
     }
   });
 
   const data = extractJSON(res.text);
   
-  // Fixed: Extract grounding metadata chunks for source verification
-  const groundingChunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks;
-  const sources = groundingChunks?.map((chunk: any) => {
-    if (chunk.web) {
-      return {
-        title: chunk.web.title || 'Market Source',
-        uri: chunk.web.uri
-      };
-    }
-    return null;
-  }).filter(Boolean) || [];
+  const groundingChunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = groundingChunks
+    .filter((chunk: any) => chunk.web)
+    .map((chunk: any) => ({
+      title: chunk.web.title || 'Market Source',
+      uri: chunk.web.uri
+    }));
 
   return data ? { ...data, sources } : null;
 };
