@@ -10,6 +10,25 @@ const getAI = () => {
   return new GoogleGenAI({ apiKey });
 };
 
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+/**
+ * Helper to handle 429 errors with automatic retries
+ */
+async function callWithRetry(fn: () => Promise<any>, retries = 3, backoff = 2000): Promise<any> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    const isRateLimit = error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED');
+    if (isRateLimit && retries > 0) {
+      console.log(`Rate limit hit. Retrying in ${backoff}ms... (${retries} retries left)`);
+      await delay(backoff);
+      return callWithRetry(fn, retries - 1, backoff * 2);
+    }
+    throw error;
+  }
+}
+
 const extractJSON = (text: string) => {
   try {
     const match = text.match(/\{[\s\S]*\}/);
@@ -21,67 +40,43 @@ const extractJSON = (text: string) => {
 };
 
 /**
- * Optimized for iPhone 14 Pro 3x Telephoto captures.
+ * One-shot Identification and Research to save quota.
  */
 export const identifyAndAppraise = async (base64Image: string, category: VaultType) => {
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
 
-  const systemInstruction = `You are a World-Class ${category} Cataloger and Market Analyst. 
-You specialize in identifying items from high-resolution, zoomed-in photos (Macro/Telephoto).
+  const systemInstruction = `You are a World-Class ${category} Cataloger. 
+Your goal is to identify an item from a photo (often a 3x telephoto macro shot) and return data in valid JSON format.
 
-Instructions for Telephoto/3x Zoom Shots:
-- Fragment Awareness: If the image is a zoomed-in shot (common on iPhone 14 Pro 3x), look for the Card Number (e.g., #245), Player Name fragments, and the Year.
-- Prioritize the 'Back': Small card numbers and stat blocks are the "fingerprint" of the item. 
-- Search Grounding: Cross-reference extracted markers with Google Search to confirm the exact set.
-- Output: You must provide structured identification AND deep research findings.`;
+Instructions:
+1. Identify Name, Year, Brand, and Card/Issue Number.
+2. Use Google Search to find real-time market value and collector significance (Rookie status, 1st appearances).
+3. Return ONLY the JSON object.
 
-  try {
-    // Call 1: Identify and Research in a single high-context call to reduce failure points
-    const researchRes = await ai.models.generateContent({
+JSON Schema:
+{
+  "name": "Full Name",
+  "year": "YYYY",
+  "brand": "Manufacturer",
+  "cardNumber": "Number",
+  "significance": "Key attribute (e.g. Rookie Card)",
+  "estimatedValue": 0.00,
+  "facts": ["Fact 1", "Fact 2", "Fact 3"]
+}`;
+
+  return callWithRetry(async () => {
+    const result = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: `Identify this ${category} item precisely (check card number/stats). 
-          Then, research its current market value (raw/ungraded), collector significance (Rookie status, 1st appearances), and find 3 historical facts.` }
+          { text: `Identify and appraise this ${category} item. Return JSON.` }
         ]
       },
       config: {
         systemInstruction,
-        tools: [{ googleSearch: {} }]
-      }
-    });
-
-    const researchText = researchRes.text;
-    if (!researchText) {
-      throw new Error("The AI identified the item but couldn't generate research data.");
-    }
-
-    const groundingChunks = researchRes.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources = groundingChunks
-      .filter((chunk: any) => chunk.web)
-      .map((chunk: any) => ({
-        title: chunk.web.title || "Market Source",
-        uri: chunk.web.uri
-      }));
-
-    // Call 2: Structure the research into JSON
-    const finalRes = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Based on this research summary: "${researchText}", convert it into JSON format exactly.
-      
-      JSON Schema:
-      {
-        "name": "Full Item/Player Name",
-        "year": "YYYY",
-        "brand": "Brand",
-        "cardNumber": "Number",
-        "significance": "One-sentence key attribute",
-        "estimatedValue": 0.00,
-        "facts": ["Fact 1", "Fact 2", "Fact 3"]
-      }`,
-      config: {
+        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -99,7 +94,15 @@ Instructions for Telephoto/3x Zoom Shots:
       }
     });
 
-    const data = extractJSON(finalRes.text);
+    const data = extractJSON(result.text);
+    const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const sources = groundingChunks
+      .filter((chunk: any) => chunk.web)
+      .map((chunk: any) => ({
+        title: chunk.web.title || "Market Source",
+        uri: chunk.web.uri
+      }));
+
     if (data) {
       return {
         title: data.name,
@@ -113,32 +116,20 @@ Instructions for Telephoto/3x Zoom Shots:
         sources
       };
     }
-    throw new Error("Failed to format the identified data into the required structure.");
-  } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    throw new Error(error.message || "Unknown API error occurred during scan.");
-  }
+    throw new Error("Could not parse AI response.");
+  });
 };
 
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
-  const query = `Research latest auction prices and significance for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}).`;
+  return callWithRetry(async () => {
+    const query = `Latest auction prices and significance for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}). Return JSON.`;
 
-  try {
-    const researchRes = await ai.models.generateContent({
+    const result = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: query,
-      config: { tools: [{ googleSearch: {} }] }
-    });
-
-    const sources = researchRes.candidates?.[0]?.groundingMetadata?.groundingChunks
-      ?.filter((c: any) => c.web)
-      ?.map((c: any) => ({ title: c.web.title || "Market Source", uri: c.web.uri })) || [];
-
-    const formatRes = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Summarize this research: "${researchRes.text}" into JSON.`,
-      config: {
+      config: { 
+        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -153,10 +144,11 @@ export const reEvaluateItem = async (item: VaultItem) => {
       }
     });
 
-    const data = extractJSON(formatRes.text);
+    const sources = result.candidates?.[0]?.groundingMetadata?.groundingChunks
+      ?.filter((c: any) => c.web)
+      ?.map((c: any) => ({ title: c.web.title || "Market Source", uri: c.web.uri })) || [];
+
+    const data = extractJSON(result.text);
     return data ? { ...data, sources } : null;
-  } catch (error) {
-    console.error("Re-evaluation Error:", error);
-    return null;
-  }
+  });
 };

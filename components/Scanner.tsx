@@ -15,20 +15,18 @@ const resizeImage = (base64Str: string): Promise<string> => {
     img.src = base64Str;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 1024; // Reasonable size for OCR and AI analysis
+      const MAX_WIDTH = 1024;
       let width = img.width;
       let height = img.height;
-
       if (width > MAX_WIDTH) {
         height *= MAX_WIDTH / width;
         width = MAX_WIDTH;
       }
-
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.8)); // 80% quality
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
     };
   });
 };
@@ -50,11 +48,11 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
       
       try {
         const base64 = await resizeImage(rawBase64);
-        setStatus('Identifying Detail...');
+        setStatus('AI Analyzing...');
         
         const data = await identifyAndAppraise(base64, category);
         if (data) {
-          setStatus('Analyzing Significance...');
+          setStatus('Finalizing...');
           onResult({
             id: Date.now().toString(36),
             category,
@@ -67,7 +65,13 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
         }
       } catch (err: any) {
         console.error(err);
-        alert(`Scan failed: ${err.message || "Unknown error"}. Try focusing closer or checking your internet connection.`);
+        let msg = "Scan failed.";
+        if (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) {
+          msg = "AI is currently busy (Rate Limit hit). Please wait 30 seconds and try again.";
+        } else {
+          msg = err.message || "Unknown error.";
+        }
+        alert(msg);
         setProcessing(false);
       }
     };
@@ -77,12 +81,12 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
   return (
     <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 flex flex-col items-center gap-8 py-12 animate-in slide-in-from-bottom-10 duration-500 overflow-hidden">
       <div className="relative">
-        {/* Pro Telephoto Target Frame */}
         <div className="w-56 h-72 bg-slate-50 rounded-[2rem] flex items-center justify-center text-6xl shadow-inner border-2 border-slate-100 relative overflow-hidden">
           {processing ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-sm z-20 px-6 text-center">
               <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
               <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest animate-pulse">{status}</p>
+              <p className="text-[8px] text-slate-400 mt-2">Retrying if busy...</p>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 opacity-10">
@@ -95,11 +99,6 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
             <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-xl"></div>
             <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-xl"></div>
             <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-xl"></div>
-            
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 opacity-30">
-              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-indigo-500"></div>
-              <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-indigo-500"></div>
-            </div>
           </div>
 
           {processing && (
@@ -119,7 +118,7 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
         <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
            <p className="text-[11px] text-indigo-700 font-bold uppercase tracking-widest leading-relaxed">
             <span className="block mb-1 text-xs">📸 Pro Tip:</span>
-            Stand back and use your <span className="underline">3x zoom</span> button to focus on the small stats & card number.
+            Stand back and use your <span className="underline">3x zoom</span> for small stats.
           </p>
         </div>
       </div>
