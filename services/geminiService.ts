@@ -70,64 +70,120 @@ JSON Schema:
   "facts": ["Fact 1", "Fact 2", "Fact 3"]
 }`;
 
-  return callWithRetry(async () => {
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: `Identify and appraise this ${category} item. Focus on reading small text and identifying the specific edition. Return JSON.` }
-        ]
-      },
-      config: {
-        systemInstruction,
-        tools: [{ googleSearch: {} }],
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            year: { type: Type.STRING },
-            brand: { type: Type.STRING },
-            cardNumber: { type: Type.STRING },
-            significance: { type: Type.STRING },
-            estimatedValue: { type: Type.NUMBER },
-            facts: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts"]
+  try {
+    return await callWithRetry(async () => {
+      const result = await ai.models.generateContent({
+        model: 'gemini-3.1-pro-preview',
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
+            { text: `Identify and appraise this ${category} item. Focus on reading small text and identifying the specific edition. Return JSON.` }
+          ]
+        },
+        config: {
+          systemInstruction,
+          tools: [{ googleSearch: {} }],
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              year: { type: Type.STRING },
+              brand: { type: Type.STRING },
+              cardNumber: { type: Type.STRING },
+              significance: { type: Type.STRING },
+              estimatedValue: { type: Type.NUMBER },
+              facts: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts"]
+          }
         }
+      });
+
+      let data;
+      try {
+        data = JSON.parse(result.text || '{}');
+      } catch (e) {
+        data = extractJSON(result.text || '');
       }
+      const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const sources = groundingChunks
+        .filter((chunk: any) => chunk.web)
+        .map((chunk: any) => ({
+          title: chunk.web.title || "Market Source",
+          uri: chunk.web.uri
+        }));
+
+      if (data) {
+        return {
+          title: data.name,
+          subTitle: data.cardNumber ? `#${data.cardNumber}` : '',
+          year: data.year,
+          brand: data.brand,
+          cardNumber: data.cardNumber,
+          significance: data.significance,
+          estimatedValue: data.estimatedValue,
+          facts: data.facts,
+          sources
+        };
+      }
+      throw new Error("Could not parse AI response.");
     });
+  } catch (error: any) {
+    console.warn("Primary AI failed or rate limited. Falling back to Basic Mode (Flash)...", error);
+    
+    // FALLBACK: Basic Mode using Gemini 3 Flash without Google Search
+    return await callWithRetry(async () => {
+      const result = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
+            { text: `BASIC MODE: Identify this ${category} item from the image. Return JSON. No web search available, use internal knowledge.` }
+          ]
+        },
+        config: {
+          systemInstruction: `You are a ${category} cataloger. Identify the item and estimate its value based on your training data. Return ONLY JSON.`,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              year: { type: Type.STRING },
+              brand: { type: Type.STRING },
+              cardNumber: { type: Type.STRING },
+              significance: { type: Type.STRING },
+              estimatedValue: { type: Type.NUMBER },
+              facts: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts"]
+          }
+        }
+      });
 
-    let data;
-    try {
-      data = JSON.parse(result.text || '{}');
-    } catch (e) {
-      data = extractJSON(result.text || '');
-    }
-    const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources = groundingChunks
-      .filter((chunk: any) => chunk.web)
-      .map((chunk: any) => ({
-        title: chunk.web.title || "Market Source",
-        uri: chunk.web.uri
-      }));
+      let data;
+      try {
+        data = JSON.parse(result.text || '{}');
+      } catch (e) {
+        data = extractJSON(result.text || '');
+      }
 
-    if (data) {
-      return {
-        title: data.name,
-        subTitle: data.cardNumber ? `#${data.cardNumber}` : '',
-        year: data.year,
-        brand: data.brand,
-        cardNumber: data.cardNumber,
-        significance: data.significance,
-        estimatedValue: data.estimatedValue,
-        facts: data.facts,
-        sources
-      };
-    }
-    throw new Error("Could not parse AI response.");
-  });
+      if (data) {
+        return {
+          title: data.name,
+          subTitle: data.cardNumber ? `#${data.cardNumber} (Basic Mode)` : '(Basic Mode)',
+          year: data.year,
+          brand: data.brand,
+          cardNumber: data.cardNumber,
+          significance: data.significance + " (Estimated via Basic Mode)",
+          estimatedValue: data.estimatedValue,
+          facts: [...(data.facts || []), "Identified using Basic Mode due to service limits."],
+          sources: []
+        };
+      }
+      throw new Error("Basic Mode also failed.");
+    }, 2, 1000); // Fewer retries for fallback
+  }
 };
 
 export const reEvaluateItem = async (item: VaultItem) => {
