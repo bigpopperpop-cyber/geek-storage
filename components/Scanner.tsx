@@ -15,7 +15,7 @@ const resizeImage = (base64Str: string): Promise<string> => {
     img.src = base64Str;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 1024;
+      const MAX_WIDTH = 1600;
       let width = img.width;
       let height = img.height;
       if (width > MAX_WIDTH) {

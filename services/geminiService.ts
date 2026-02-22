@@ -46,32 +46,37 @@ export const identifyAndAppraise = async (base64Image: string, category: VaultTy
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
 
-  const systemInstruction = `You are a World-Class ${category} Cataloger. 
-Your goal is to identify an item from a photo (often a 3x telephoto macro shot) and return data in valid JSON format.
+  const systemInstruction = `You are an expert ${category} appraiser and cataloger.
+Your task is to identify the specific item in the provided image and provide a detailed appraisal.
 
-Instructions:
-1. Identify Name, Year, Brand, and Card/Issue Number.
-2. Use Google Search to find real-time market value and collector significance (Rookie status, 1st appearances).
-3. Return ONLY the JSON object.
+Identification Steps:
+1. Perform high-accuracy OCR to extract all text from the item (Name, Year, Brand, Card Number, Series, etc.).
+2. Analyze visual elements (artwork, logos, holographic patterns, borders) to confirm the specific edition.
+3. Use Google Search to find the most recent market value (eBay sold listings, specialized marketplaces) and any special significance (e.g., Rookie Card, 1st Appearance, Short Print, Error Card).
+
+Output Requirements:
+- Return ONLY a valid JSON object.
+- If identification is uncertain, provide the most likely match based on visible evidence.
+- Ensure 'estimatedValue' is a number representing USD.
 
 JSON Schema:
 {
-  "name": "Full Name",
+  "name": "Full Name of Item",
   "year": "YYYY",
-  "brand": "Manufacturer",
-  "cardNumber": "Number",
-  "significance": "Key attribute (e.g. Rookie Card)",
+  "brand": "Manufacturer/Publisher",
+  "cardNumber": "Specific ID or Number",
+  "significance": "Key collector attributes",
   "estimatedValue": 0.00,
   "facts": ["Fact 1", "Fact 2", "Fact 3"]
 }`;
 
   return callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-pro-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: `Identify and appraise this ${category} item. Return JSON.` }
+          { text: `Identify and appraise this ${category} item. Focus on reading small text and identifying the specific edition. Return JSON.` }
         ]
       },
       config: {
@@ -94,7 +99,12 @@ JSON Schema:
       }
     });
 
-    const data = extractJSON(result.text);
+    let data;
+    try {
+      data = JSON.parse(result.text || '{}');
+    } catch (e) {
+      data = extractJSON(result.text || '');
+    }
     const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources = groundingChunks
       .filter((chunk: any) => chunk.web)
@@ -148,7 +158,7 @@ export const reEvaluateItem = async (item: VaultItem) => {
       ?.filter((c: any) => c.web)
       ?.map((c: any) => ({ title: c.web.title || "Market Source", uri: c.web.uri })) || [];
 
-    const data = extractJSON(result.text);
+    const data = extractJSON(result.text || '');
     return data ? { ...data, sources } : null;
   });
 };
