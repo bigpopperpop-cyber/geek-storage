@@ -29,7 +29,8 @@ const App: React.FC = () => {
     minValue: 0,
     maxValue: 1000000,
     rarity: '',
-    condition: ''
+    condition: '',
+    sortBy: 'newest'
   });
 
   useEffect(() => {
@@ -100,6 +101,16 @@ const App: React.FC = () => {
       const matchesValue = i.estimatedValue >= filters.minValue && i.estimatedValue <= filters.maxValue;
 
       return matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue;
+    })
+    .sort((a, b) => {
+      if (filters.sortBy === 'value-high') {
+        return (b.estimatedValue || 0) - (a.estimatedValue || 0);
+      }
+      if (filters.sortBy === 'value-low') {
+        return (a.estimatedValue || 0) - (b.estimatedValue || 0);
+      }
+      // Default: newest (by dateAdded)
+      return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
     });
 
   const totalValue = filteredItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0);

@@ -15,6 +15,7 @@ export interface FilterState {
   maxValue: number;
   rarity: string;
   condition: string;
+  sortBy: 'newest' | 'value-high' | 'value-low';
 }
 
 const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, onFilterChange, isSearching }) => {
@@ -26,7 +27,8 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, onFilterChange, i
     minValue: 0,
     maxValue: 1000000,
     rarity: '',
-    condition: ''
+    condition: '',
+    sortBy: 'newest'
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -47,7 +49,15 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, onFilterChange, i
   };
 
   const clearFilters = () => {
-    const reset = { year: '', brand: '', minValue: 0, maxValue: 1000000, rarity: '', condition: '' };
+    const reset: FilterState = { 
+      year: '', 
+      brand: '', 
+      minValue: 0, 
+      maxValue: 1000000, 
+      rarity: '', 
+      condition: '',
+      sortBy: 'newest'
+    };
     setFilters(reset);
     onFilterChange(reset);
     setQuery('');
@@ -165,6 +175,18 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, onFilterChange, i
                 onChange={(e) => updateFilter('maxValue', Number(e.target.value))}
                 className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none"
               />
+            </div>
+            <div className="space-y-1 col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sort By</label>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => updateFilter('sortBy', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none appearance-none"
+              >
+                <option value="newest">Newest Added</option>
+                <option value="value-high">Value: High to Low</option>
+                <option value="value-low">Value: Low to High</option>
+              </select>
             </div>
           </div>
           <button
