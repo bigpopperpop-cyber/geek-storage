@@ -95,7 +95,7 @@ const TextSearchAdd: React.FC<TextSearchAddProps> = ({ category, onCancel, onRes
 
       <div className="text-center">
         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-          Uses Gemini 3.1 Pro with Google Search
+          Uses Gemini Flash with Google Search
         </p>
       </div>
     </div>

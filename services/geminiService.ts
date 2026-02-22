@@ -225,7 +225,7 @@ JSON Schema:
 
   return await callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: `Identify and appraise this ${category} item: "${query}". Return JSON.`,
       config: {
         systemInstruction,
