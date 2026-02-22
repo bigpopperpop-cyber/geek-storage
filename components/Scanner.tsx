@@ -122,6 +122,10 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
             Stand back and use your <span className="underline">3x zoom</span> for small stats.
           </p>
         </div>
+        
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-2">
+          Hit limits? <button onClick={() => window.dispatchEvent(new CustomEvent('switch-to-search'))} className="text-indigo-600 underline">Try AI Text Search</button>
+        </p>
       </div>
 
       {!processing && (

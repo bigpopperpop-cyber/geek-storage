@@ -10,6 +10,7 @@ import ItemDetail from './components/ItemDetail';
 import Navbar from './components/Navbar';
 import Reports from './components/Reports';
 import SearchFilter, { FilterState } from './components/SearchFilter';
+import TextSearchAdd from './components/TextSearchAdd';
 import { aiFilterItems } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -38,6 +39,10 @@ const App: React.FC = () => {
       setItems(data);
       setLoading(false);
     });
+
+    const handleSwitchToSearch = () => setView('search_add');
+    window.addEventListener('switch-to-search', handleSwitchToSearch);
+    return () => window.removeEventListener('switch-to-search', handleSwitchToSearch);
   }, []);
 
   const handleResult = async (item: VaultItem) => {
@@ -152,6 +157,10 @@ const App: React.FC = () => {
 
         {view === 'scan' && (
           <Scanner category={activeVault} onCancel={() => setView('vault')} onResult={handleResult} />
+        )}
+
+        {view === 'search_add' && (
+          <TextSearchAdd category={activeVault} onCancel={() => setView('vault')} onResult={handleResult} />
         )}
 
         {view === 'item' && selectedItem && (

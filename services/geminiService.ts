@@ -196,6 +196,92 @@ JSON Schema:
   }
 };
 
+export const searchAndAppraiseByText = async (query: string, category: VaultType) => {
+  const ai = getAI();
+
+  const systemInstruction = `You are an expert ${category} appraiser and cataloger.
+Your task is to identify the specific item described by the user and provide a detailed appraisal using real-time market data.
+
+Steps:
+1. Use Google Search to find the exact item, its current market value (eBay sold listings, specialized marketplaces), and any special significance (e.g., Rookie Card, 1st Appearance, Short Print, Error Card).
+2. Determine the rarity and typical condition for such an item.
+
+Output Requirements:
+- Return ONLY a valid JSON object.
+- Ensure 'estimatedValue' is a number representing USD.
+
+JSON Schema:
+{
+  "name": "Full Name of Item",
+  "year": "YYYY",
+  "brand": "Manufacturer/Publisher",
+  "cardNumber": "Specific ID or Number",
+  "significance": "Key collector attributes",
+  "rarity": "Common/Uncommon/Rare/Ultra-Rare",
+  "condition": "Typical condition (e.g. Near Mint)",
+  "estimatedValue": 0.00,
+  "facts": ["Fact 1", "Fact 2", "Fact 3"]
+}`;
+
+  return await callWithRetry(async () => {
+    const result = await ai.models.generateContent({
+      model: 'gemini-3.1-pro-preview',
+      contents: `Identify and appraise this ${category} item: "${query}". Return JSON.`,
+      config: {
+        systemInstruction,
+        tools: [{ googleSearch: {} }],
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            year: { type: Type.STRING },
+            brand: { type: Type.STRING },
+            cardNumber: { type: Type.STRING },
+            significance: { type: Type.STRING },
+            rarity: { type: Type.STRING },
+            condition: { type: Type.STRING },
+            estimatedValue: { type: Type.NUMBER },
+            facts: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts", "rarity", "condition"]
+        }
+      }
+    });
+
+    let data;
+    try {
+      data = JSON.parse(result.text || '{}');
+    } catch (e) {
+      data = extractJSON(result.text || '');
+    }
+    const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const sources = groundingChunks
+      .filter((chunk: any) => chunk.web)
+      .map((chunk: any) => ({
+        title: chunk.web.title || "Market Source",
+        uri: chunk.web.uri
+      }));
+
+    if (data) {
+      return {
+        title: data.name,
+        subTitle: data.cardNumber ? `#${data.cardNumber}` : '',
+        year: data.year,
+        brand: data.brand,
+        cardNumber: data.cardNumber,
+        significance: data.significance,
+        rarity: data.rarity,
+        condition: data.condition,
+        estimatedValue: data.estimatedValue,
+        facts: data.facts,
+        sources
+      };
+    }
+    throw new Error("Could not parse AI response.");
+  });
+};
+
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
   return callWithRetry(async () => {
