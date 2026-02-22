@@ -27,7 +27,9 @@ const App: React.FC = () => {
     year: '',
     brand: '',
     minValue: 0,
-    maxValue: 1000000
+    maxValue: 1000000,
+    rarity: '',
+    condition: ''
   });
 
   useEffect(() => {
@@ -87,14 +89,17 @@ const App: React.FC = () => {
       const matchesSearch = !searchQuery || 
         i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         i.subTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        i.brand.toLowerCase().includes(searchQuery.toLowerCase());
+        i.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        i.significance.toLowerCase().includes(searchQuery.toLowerCase());
 
       // Manual Filters
       const matchesYear = !filters.year || i.year.includes(filters.year);
       const matchesBrand = !filters.brand || i.brand.toLowerCase().includes(filters.brand.toLowerCase());
+      const matchesRarity = !filters.rarity || (i.rarity && i.rarity.toLowerCase().includes(filters.rarity.toLowerCase()));
+      const matchesCondition = !filters.condition || (i.condition && i.condition.toLowerCase().includes(filters.condition.toLowerCase()));
       const matchesValue = i.estimatedValue >= filters.minValue && i.estimatedValue <= filters.maxValue;
 
-      return matchesSearch && matchesYear && matchesBrand && matchesValue;
+      return matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue;
     });
 
   const totalValue = filteredItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0);

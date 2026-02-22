@@ -14,6 +14,7 @@ export interface VaultItem {
   brand: string;          // Manufacturer (Topps, Marvel, etc.)
   cardNumber: string;     // Card # or Issue #
   significance: string;    // Rookie Card, 1st Appearance, etc.
+  rarity?: string;
   condition: string;
   estimatedValue: number;
   facts: string[];

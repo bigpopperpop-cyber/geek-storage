@@ -57,7 +57,8 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
             id: Date.now().toString(36),
             category,
             ...data,
-            condition: 'Raw/Ungraded',
+            condition: data.condition || 'Raw/Ungraded',
+            rarity: data.rarity,
             dateAdded: new Date().toISOString(),
             lastValued: new Date().toISOString(),
             image: base64

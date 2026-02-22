@@ -79,6 +79,11 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, onDelete, onUpdate }) => {
                   {item.keyFeatures}
                 </span>
               )}
+              {item.rarity && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[9px] font-black uppercase tracking-tighter border border-amber-100">
+                  {item.rarity}
+                </span>
+              )}
               <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 text-[9px] font-bold uppercase tracking-tighter">
                 {item.condition}
               </span>

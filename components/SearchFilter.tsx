@@ -13,6 +13,8 @@ export interface FilterState {
   brand: string;
   minValue: number;
   maxValue: number;
+  rarity: string;
+  condition: string;
 }
 
 const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, onFilterChange, isSearching }) => {
@@ -22,7 +24,9 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, onFilterChange, i
     year: '',
     brand: '',
     minValue: 0,
-    maxValue: 1000000
+    maxValue: 1000000,
+    rarity: '',
+    condition: ''
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -43,7 +47,7 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, onFilterChange, i
   };
 
   const clearFilters = () => {
-    const reset = { year: '', brand: '', minValue: 0, maxValue: 1000000 };
+    const reset = { year: '', brand: '', minValue: 0, maxValue: 1000000, rarity: '', condition: '' };
     setFilters(reset);
     onFilterChange(reset);
     setQuery('');
@@ -121,6 +125,26 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ onSearch, onFilterChange, i
                 value={filters.brand}
                 onChange={(e) => updateFilter('brand', e.target.value)}
                 placeholder="e.g. Topps"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rarity</label>
+              <input
+                type="text"
+                value={filters.rarity}
+                onChange={(e) => updateFilter('rarity', e.target.value)}
+                placeholder="e.g. Rare"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Condition</label>
+              <input
+                type="text"
+                value={filters.condition}
+                onChange={(e) => updateFilter('condition', e.target.value)}
+                placeholder="e.g. Mint"
                 className="w-full bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 text-sm focus:outline-none"
               />
             </div>

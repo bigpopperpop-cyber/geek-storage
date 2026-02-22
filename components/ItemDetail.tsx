@@ -66,6 +66,14 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
                   #{item.cardNumber}
                 </span>
               )}
+              {item.rarity && (
+                <span className="bg-amber-50 text-amber-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-amber-100">
+                  {item.rarity}
+                </span>
+              )}
+              <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-emerald-100">
+                {item.condition}
+              </span>
             </div>
             <h2 className="text-3xl font-black text-slate-900 leading-tight">{item.title}</h2>
           </div>

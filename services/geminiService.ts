@@ -66,6 +66,8 @@ JSON Schema:
   "brand": "Manufacturer/Publisher",
   "cardNumber": "Specific ID or Number",
   "significance": "Key collector attributes",
+  "rarity": "Common/Uncommon/Rare/Ultra-Rare",
+  "condition": "Estimated condition (e.g. Near Mint, Very Fine)",
   "estimatedValue": 0.00,
   "facts": ["Fact 1", "Fact 2", "Fact 3"]
 }`;
@@ -92,10 +94,12 @@ JSON Schema:
               brand: { type: Type.STRING },
               cardNumber: { type: Type.STRING },
               significance: { type: Type.STRING },
+              rarity: { type: Type.STRING },
+              condition: { type: Type.STRING },
               estimatedValue: { type: Type.NUMBER },
               facts: { type: Type.ARRAY, items: { type: Type.STRING } }
             },
-            required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts"]
+            required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts", "rarity", "condition"]
           }
         }
       });
@@ -122,6 +126,8 @@ JSON Schema:
           brand: data.brand,
           cardNumber: data.cardNumber,
           significance: data.significance,
+          rarity: data.rarity,
+          condition: data.condition,
           estimatedValue: data.estimatedValue,
           facts: data.facts,
           sources
@@ -153,10 +159,12 @@ JSON Schema:
               brand: { type: Type.STRING },
               cardNumber: { type: Type.STRING },
               significance: { type: Type.STRING },
+              rarity: { type: Type.STRING },
+              condition: { type: Type.STRING },
               estimatedValue: { type: Type.NUMBER },
               facts: { type: Type.ARRAY, items: { type: Type.STRING } }
             },
-            required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts"]
+            required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts", "rarity", "condition"]
           }
         }
       });
@@ -176,6 +184,8 @@ JSON Schema:
           brand: data.brand,
           cardNumber: data.cardNumber,
           significance: data.significance + " (Estimated via Basic Mode)",
+          rarity: data.rarity || 'Unknown',
+          condition: data.condition || 'Raw/Ungraded',
           estimatedValue: data.estimatedValue,
           facts: [...(data.facts || []), "Identified using Basic Mode due to service limits."],
           sources: []
@@ -229,7 +239,9 @@ export const aiFilterItems = async (query: string, items: VaultItem[]) => {
     year: i.year,
     brand: i.brand,
     value: i.estimatedValue,
-    significance: i.significance
+    significance: i.significance,
+    rarity: i.rarity,
+    condition: i.condition
   }));
 
   const systemInstruction = `You are a data filtering assistant for a collectible vault.
@@ -241,6 +253,8 @@ Criteria can include:
 - Value thresholds (e.g., "worth more than $100")
 - Specific brands or manufacturers
 - Significance (e.g., "rookie cards", "first appearances")
+- Rarity (e.g., "ultra rare", "common")
+- Condition (e.g., "near mint", "mint")
 
 Return ONLY a JSON array of strings (the IDs). If no items match, return an empty array [].`;
 
