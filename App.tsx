@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [items, setItems] = useState<VaultItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<VaultItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsKey, setNeedsKey] = useState(false);
   
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,6 +36,18 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
+    const checkKey = async () => {
+      const hasKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!hasKey && window.aistudio) {
+        const selected = await window.aistudio.hasSelectedApiKey();
+        if (!selected) {
+          setNeedsKey(true);
+        }
+      }
+    };
+
+    checkKey();
+
     getAllItems().then(data => {
       setItems(data);
       setLoading(false);
@@ -44,6 +57,16 @@ const App: React.FC = () => {
     window.addEventListener('switch-to-search', handleSwitchToSearch);
     return () => window.removeEventListener('switch-to-search', handleSwitchToSearch);
   }, []);
+
+  const handleSelectKey = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      setNeedsKey(false);
+      // Refresh items just in case
+      const data = await getAllItems();
+      setItems(data);
+    }
+  };
 
   const handleResult = async (item: VaultItem) => {
     await saveItem(item);
@@ -129,6 +152,27 @@ const App: React.FC = () => {
   if (loading) return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center">
       <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
+
+  if (needsKey) return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
+      <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl max-w-sm w-full space-y-6">
+        <div className="text-5xl">🔑</div>
+        <h2 className="text-2xl font-black text-slate-900">API Key Required</h2>
+        <p className="text-sm text-slate-500 leading-relaxed">
+          To use the AI features and avoid rate limits, please select a Gemini API key from a paid Google Cloud project.
+        </p>
+        <button
+          onClick={handleSelectKey}
+          className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-indigo-200 active:scale-95 transition-all"
+        >
+          Select API Key
+        </button>
+        <p className="text-[10px] text-slate-400">
+          See <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline">billing documentation</a> for details.
+        </p>
+      </div>
     </div>
   );
 

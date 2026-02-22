@@ -3,9 +3,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { VaultType, VaultItem } from "../types";
 
 const getAI = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("Gemini API Key is missing. Please ensure your environment is configured.");
+    throw new Error("Gemini API Key is missing. Please ensure your environment is configured or a key is selected.");
   }
   return new GoogleGenAI({ apiKey });
 };

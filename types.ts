@@ -33,3 +33,12 @@ export const VAULT_CONFIG = {
   fantasy: { label: 'Fantasy', icon: '🧙‍♂️', color: '#f59e0b', theme: 'amber' },
   coins: { label: 'Coins', icon: '🪙', color: '#eab308', theme: 'yellow' },
 };
+
+declare global {
+  interface Window {
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
