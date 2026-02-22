@@ -218,3 +218,81 @@ export const reEvaluateItem = async (item: VaultItem) => {
     return data ? { ...data, sources } : null;
   });
 };
+
+export const aiFilterItems = async (query: string, items: VaultItem[]) => {
+  const ai = getAI();
+  
+  const itemSummary = items.map(i => ({
+    id: i.id,
+    title: i.title,
+    subTitle: i.subTitle,
+    year: i.year,
+    brand: i.brand,
+    value: i.estimatedValue,
+    significance: i.significance
+  }));
+
+  const systemInstruction = `You are a data filtering assistant for a collectible vault.
+Your task is to analyze a user's natural language search query and return a list of item IDs that match the criteria.
+
+Criteria can include:
+- Specific players or titles
+- Year ranges (e.g., "from the 90s", "before 2000")
+- Value thresholds (e.g., "worth more than $100")
+- Specific brands or manufacturers
+- Significance (e.g., "rookie cards", "first appearances")
+
+Return ONLY a JSON array of strings (the IDs). If no items match, return an empty array [].`;
+
+  return callWithRetry(async () => {
+    const result = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `User Query: "${query}"\n\nItems to filter:\n${JSON.stringify(itemSummary)}`,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+
+    try {
+      return JSON.parse(result.text || '[]');
+    } catch (e) {
+      console.error("AI Filter Parse Error", e);
+      return [];
+    }
+  });
+};
+
+export const getCollectionInsights = async (items: VaultItem[]) => {
+  const ai = getAI();
+  const summary = items.map(i => `${i.year} ${i.brand} ${i.title} ($${i.estimatedValue})`).join(', ');
+
+  const systemInstruction = `You are a professional collection advisor. 
+Analyze the provided list of collectibles and provide 3 concise, high-impact insights about the collection's value, diversity, or potential growth.
+Return ONLY a JSON array of 3 strings.`;
+
+  return callWithRetry(async () => {
+    const result = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Collection Summary: ${summary}`,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+
+    try {
+      return JSON.parse(result.text || '[]');
+    } catch (e) {
+      return ["Collection looks solid.", "Keep adding rare items.", "Monitor market trends."];
+    }
+  });
+};

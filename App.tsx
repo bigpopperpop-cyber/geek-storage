@@ -9,6 +9,8 @@ import ItemList from './components/ItemList';
 import ItemDetail from './components/ItemDetail';
 import Navbar from './components/Navbar';
 import Reports from './components/Reports';
+import SearchFilter, { FilterState } from './components/SearchFilter';
+import { aiFilterItems } from './services/geminiService';
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('vault');
@@ -16,6 +18,17 @@ const App: React.FC = () => {
   const [items, setItems] = useState<VaultItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<VaultItem | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Search and Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isAISearching, setIsAISearching] = useState(false);
+  const [aiFilteredIds, setAiFilteredIds] = useState<string[] | null>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    year: '',
+    brand: '',
+    minValue: 0,
+    maxValue: 1000000
+  });
 
   useEffect(() => {
     getAllItems().then(data => {
@@ -38,8 +51,59 @@ const App: React.FC = () => {
     }
   };
 
-  const vaultItems = items.filter(i => i.category === activeVault);
-  const totalValue = vaultItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0);
+  const handleSearch = async (query: string, isAI: boolean) => {
+    setSearchQuery(query);
+    if (!query) {
+      setAiFilteredIds(null);
+      return;
+    }
+
+    if (isAI) {
+      setIsAISearching(true);
+      try {
+        const ids = await aiFilterItems(query, items.filter(i => i.category === activeVault));
+        setAiFilteredIds(ids);
+      } catch (error) {
+        console.error("AI Search Error", error);
+        alert("AI Search failed. Falling back to keyword search.");
+        setAiFilteredIds(null);
+      } finally {
+        setIsAISearching(false);
+      }
+    } else {
+      setAiFilteredIds(null);
+    }
+  };
+
+  const filteredItems = items
+    .filter(i => i.category === activeVault)
+    .filter(i => {
+      // AI Filter
+      if (aiFilteredIds !== null) {
+        return aiFilteredIds.includes(i.id);
+      }
+
+      // Keyword Search
+      const matchesSearch = !searchQuery || 
+        i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        i.subTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        i.brand.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Manual Filters
+      const matchesYear = !filters.year || i.year.includes(filters.year);
+      const matchesBrand = !filters.brand || i.brand.toLowerCase().includes(filters.brand.toLowerCase());
+      const matchesValue = i.estimatedValue >= filters.minValue && i.estimatedValue <= filters.maxValue;
+
+      return matchesSearch && matchesYear && matchesBrand && matchesValue;
+    });
+
+  const totalValue = filteredItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0);
+
+  const handleVaultSwitch = (vault: VaultType) => {
+    setActiveVault(vault);
+    setSearchQuery('');
+    setAiFilteredIds(null);
+  };
 
   if (loading) return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -53,14 +117,20 @@ const App: React.FC = () => {
         view={view} 
         activeVault={activeVault} 
         totalValue={totalValue} 
+        itemCount={filteredItems.length}
         onBack={() => setView('vault')} 
       />
 
       <main className="flex-grow overflow-y-auto px-5 pb-32 pt-6">
         {view === 'vault' && (
           <>
-            <VaultSwitcher activeVault={activeVault} setActiveVault={setActiveVault} />
-            <ItemList items={vaultItems} onSelectItem={(i) => { setSelectedItem(i); setView('item'); }} />
+            <VaultSwitcher activeVault={activeVault} setActiveVault={handleVaultSwitch} />
+            <SearchFilter 
+              onSearch={handleSearch} 
+              onFilterChange={setFilters} 
+              isSearching={isAISearching} 
+            />
+            <ItemList items={filteredItems} onSelectItem={(i) => { setSelectedItem(i); setView('item'); }} />
           </>
         )}
 
