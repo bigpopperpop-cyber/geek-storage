@@ -1,12 +1,19 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { VaultItem, VAULT_CONFIG } from '../types';
 import { getCollectionInsights } from '../services/geminiService';
-import { Sparkles } from 'lucide-react';
+import { exportCollection, importCollection } from '../services/storageService';
+import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck } from 'lucide-react';
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, 
+  BarChart, Bar, XAxis, YAxis, Tooltip, 
+  Legend 
+} from 'recharts';
 
-export default function Reports({ items }: { items: VaultItem[] }) {
+export default function Reports({ items, onRefresh }: { items: VaultItem[], onRefresh?: () => void }) {
   const [insights, setInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [importing, setImporting] = useState(false);
   const categories = Object.keys(VAULT_CONFIG) as (keyof typeof VAULT_CONFIG)[];
 
   useEffect(() => {
@@ -17,58 +24,237 @@ export default function Reports({ items }: { items: VaultItem[] }) {
         .finally(() => setLoadingInsights(false));
     }
   }, [items]);
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      await importCollection(file);
+      alert('Collection restored successfully!');
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  };
+
+  const chartData = useMemo(() => {
+    return categories.map(cat => {
+      const catItems = items.filter(i => i.category === cat);
+      const value = catItems.reduce((a, b) => a + (b.estimatedValue || 0), 0);
+      return {
+        name: VAULT_CONFIG[cat].label,
+        value,
+        count: catItems.length,
+        color: VAULT_CONFIG[cat].color,
+        icon: VAULT_CONFIG[cat].icon
+      };
+    }).filter(d => d.count > 0);
+  }, [items, categories]);
+
+  const totalValue = items.reduce((a, b) => a + (b.estimatedValue || 0), 0);
   
   return (
-    <div className="space-y-6 pb-20">
-      <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden">
+    <div className="space-y-8 pb-24 animate-in fade-in duration-700">
+      {/* Hero Stats */}
+      <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden shadow-2xl shadow-slate-200">
         <div className="relative z-10">
-          <h2 className="text-3xl font-black italic">COLLECTION DATA</h2>
-          <p className="text-slate-400 text-sm mt-1 uppercase tracking-widest font-bold">Total Portfolio Assets</p>
-          <p className="text-4xl font-black mt-4">${items.reduce((a, b) => a + (b.estimatedValue || 0), 0).toLocaleString()}</p>
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Portfolio Performance</span>
+          </div>
+          <h2 className="text-4xl font-black tracking-tighter">${totalValue.toLocaleString()}</h2>
+          <div className="flex gap-4 mt-6">
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Assets</p>
+              <p className="text-xl font-black">{items.length}</p>
+            </div>
+            <div className="w-px h-10 bg-slate-800 self-center" />
+            <div>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Value</p>
+              <p className="text-xl font-black">${items.length ? Math.round(totalValue / items.length).toLocaleString() : 0}</p>
+            </div>
+          </div>
         </div>
-        <div className="absolute -right-10 -bottom-10 text-white/5 text-[10rem] font-black italic select-none">DATA</div>
+        <div className="absolute -right-10 -top-10 text-white/5 text-[12rem] font-black italic select-none pointer-events-none">DATA</div>
       </div>
 
+      {/* AI Insights */}
       {items.length > 0 && (
-        <div className="bg-indigo-600 p-6 rounded-[2rem] text-white shadow-xl shadow-indigo-200">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-indigo-200" />
-            <h3 className="text-sm font-black uppercase tracking-widest">AI Collection Insights</h3>
+        <div className="bg-indigo-600 p-6 rounded-[2rem] text-white shadow-xl shadow-indigo-100 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+            <Sparkles className="w-20 h-20" />
           </div>
-          {loadingInsights ? (
-            <div className="flex items-center gap-3 py-4">
-              <div className="w-4 h-4 border-2 border-indigo-300 border-t-white rounded-full animate-spin" />
-              <p className="text-xs font-bold text-indigo-100 animate-pulse">Analyzing collection patterns...</p>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-indigo-200" />
+              <h3 className="text-xs font-black uppercase tracking-widest">AI Strategic Insights</h3>
             </div>
-          ) : (
-            <ul className="space-y-3">
-              {insights.map((insight, i) => (
-                <li key={i} className="flex gap-3 text-xs font-bold leading-relaxed text-indigo-50">
-                  <span className="text-indigo-300">0{i + 1}</span>
-                  {insight}
-                </li>
-              ))}
-            </ul>
-          )}
+            {loadingInsights ? (
+              <div className="flex items-center gap-3 py-4">
+                <div className="w-4 h-4 border-2 border-indigo-300 border-t-white rounded-full animate-spin" />
+                <p className="text-xs font-bold text-indigo-100 animate-pulse">Consulting market data...</p>
+              </div>
+            ) : (
+              <ul className="space-y-4">
+                {insights.map((insight, i) => (
+                  <li key={i} className="flex gap-4 text-xs font-bold leading-relaxed text-indigo-50">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px]">
+                      {i + 1}
+                    </span>
+                    <p className="pt-1">{insight}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        {categories.map(cat => {
-          const catItems = items.filter(i => i.category === cat);
-          const val = catItems.reduce((a, b) => a + b.estimatedValue, 0);
-          return (
-            <div key={cat} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xl">{VAULT_CONFIG[cat].icon}</span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{cat}</span>
+      {/* Visualizations */}
+      {items.length > 0 ? (
+        <div className="space-y-6">
+          {/* Pie Chart: Distribution */}
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <PieChartIcon className="w-4 h-4 text-slate-400" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Value Distribution</h3>
               </div>
-              <p className="text-xl font-black text-slate-900">${val.toLocaleString()}</p>
-              <p className="text-[10px] font-bold text-slate-300 mt-1">{catItems.length} ITEMS</p>
             </div>
-          );
-        })}
-      </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                    formatter={(value: any) => [`$${Number(value).toLocaleString()}`, 'Value']}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              {chartData.map((data) => (
+                <div key={data.name} className="flex items-center gap-2 p-2 rounded-xl bg-slate-50">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color }} />
+                  <span className="text-[10px] font-black text-slate-500 uppercase truncate">{data.name}</span>
+                  <span className="text-[10px] font-black text-slate-900 ml-auto">{Math.round((data.value / totalValue) * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bar Chart: Category Comparison */}
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-slate-400" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Category Comparison</h3>
+              </div>
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 30 }}>
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    axisLine={false} 
+                    tickLine={false}
+                    tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }}
+                    width={80}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'transparent' }}
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                  />
+                  <Bar dataKey="count" radius={[0, 10, 10, 0]}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-[10px] text-center font-bold text-slate-400 uppercase tracking-widest mt-2">Item Count per Category</p>
+          </div>
+
+          {/* Data Management */}
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck className="w-4 h-4 text-slate-400" />
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Data Management</h3>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={exportCollection}
+                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group"
+              >
+                <Download className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Backup</span>
+              </button>
+              
+              <label className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group cursor-pointer">
+                <Upload className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                  {importing ? 'Restoring...' : 'Restore'}
+                </span>
+                <input 
+                  type="file" 
+                  accept=".json" 
+                  className="hidden" 
+                  onChange={handleImport}
+                  disabled={importing}
+                />
+              </label>
+            </div>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-center leading-relaxed">
+              Export your collection as a JSON file for safe keeping or to transfer between devices.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white p-12 rounded-[2.5rem] border border-dashed border-slate-200 text-center space-y-6">
+          <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+            <BarChart3 className="w-8 h-8 text-slate-200" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No data to visualize yet</p>
+            <p className="text-xs text-slate-300 mt-2">Scan or add items to see your portfolio analytics</p>
+          </div>
+          
+          <div className="pt-4">
+            <label className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest cursor-pointer active:scale-95 transition-all">
+              <Upload className="w-4 h-4" />
+              {importing ? 'Restoring...' : 'Restore from Backup'}
+              <input 
+                type="file" 
+                accept=".json" 
+                className="hidden" 
+                onChange={handleImport}
+                disabled={importing}
+              />
+            </label>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

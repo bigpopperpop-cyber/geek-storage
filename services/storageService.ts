@@ -47,3 +47,40 @@ export const deleteItem = async (id: string) => {
     tx.onerror = () => reject(tx.error);
   });
 };
+
+export const exportCollection = async () => {
+  const items = await getAllItems();
+  const data = JSON.stringify(items, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `vault-backup-${new Date().toISOString().split('T')[0]}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+export const importCollection = async (file: File): Promise<VaultItem[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const items = JSON.parse(e.target?.result as string) as VaultItem[];
+        const db = await getDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        
+        for (const item of items) {
+          store.put(item);
+        }
+        
+        tx.oncomplete = () => resolve(items);
+        tx.onerror = () => reject(tx.error);
+      } catch (err) {
+        reject(new Error('Invalid backup file format.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read file.'));
+    reader.readAsText(file);
+  });
+};

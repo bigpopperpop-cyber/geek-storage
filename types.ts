@@ -1,5 +1,5 @@
 
-export type VaultType = 'sports' | 'comics' | 'fantasy' | 'coins';
+export type VaultType = 'sports' | 'comics' | 'fantasy' | 'coins' | 'other';
 export type AppView = 'vault' | 'scan' | 'item' | 'reports' | 'search_add';
 
 // Fix: Added ComicCondition type used in ComicForm.tsx
@@ -32,6 +32,7 @@ export const VAULT_CONFIG = {
   comics: { label: 'Comics', icon: '📚', color: '#6366f1', theme: 'indigo' },
   fantasy: { label: 'Fantasy', icon: '🧙‍♂️', color: '#f59e0b', theme: 'amber' },
   coins: { label: 'Coins', icon: '🪙', color: '#eab308', theme: 'yellow' },
+  other: { label: 'Other', icon: '📦', color: '#64748b', theme: 'slate' },
 };
 
 declare global {

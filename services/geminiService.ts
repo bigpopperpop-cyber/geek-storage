@@ -42,9 +42,10 @@ const extractJSON = (text: string) => {
 /**
  * One-shot Identification and Research to save quota.
  */
-export const identifyAndAppraise = async (base64Image: string, category: VaultType) => {
+export const identifyAndAppraise = async (base64Image: string, category: VaultType, mode: 'fast' | 'intelligence' = 'intelligence') => {
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
+  const model = mode === 'intelligence' ? 'gemini-3.1-pro-preview' : 'gemini-flash-latest';
 
   const systemInstruction = `You are an expert ${category} appraiser and cataloger.
 Your task is to identify the specific item in the provided image and provide a detailed appraisal.
@@ -74,7 +75,7 @@ JSON Schema:
 
   return await callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: model,
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
@@ -124,7 +125,7 @@ JSON Schema:
         year: data.year,
         brand: data.brand,
         cardNumber: data.cardNumber,
-        significance: data.significance,
+        significance: data.significance + (mode === 'fast' ? ' (Fast Scan)' : ''),
         rarity: data.rarity,
         condition: data.condition,
         estimatedValue: data.estimatedValue,
@@ -133,7 +134,7 @@ JSON Schema:
       };
     }
     throw new Error("Could not parse AI response.");
-  }, 5, 3000);
+  }, mode === 'intelligence' ? 3 : 5, 3000);
 };
 
 export const searchAndAppraiseByText = async (query: string, category: VaultType) => {
@@ -165,7 +166,7 @@ JSON Schema:
 
   return await callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-flash-latest',
       contents: `Identify and appraise this ${category} item: "${query}". Return JSON.`,
       config: {
         systemInstruction,
@@ -228,7 +229,7 @@ export const reEvaluateItem = async (item: VaultItem) => {
     const query = `Latest auction prices and significance for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}). Return JSON.`;
 
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-flash-latest',
       contents: query,
       config: { 
         tools: [{ googleSearch: {} }],
@@ -286,7 +287,7 @@ Return ONLY a JSON array of strings (the IDs). If no items match, return an empt
 
   return callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-flash-latest',
       contents: `User Query: "${query}"\n\nItems to filter:\n${JSON.stringify(itemSummary)}`,
       config: {
         systemInstruction,
@@ -317,7 +318,7 @@ Return ONLY a JSON array of 3 strings.`;
 
   return callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-flash-latest',
       contents: `Collection Summary: ${summary}`,
       config: {
         systemInstruction,

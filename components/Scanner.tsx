@@ -34,6 +34,7 @@ const resizeImage = (base64Str: string): Promise<string> => {
 const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState('');
+  const [scanMode, setScanMode] = useState<'fast' | 'intelligence'>('intelligence');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,9 +49,9 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
       
       try {
         const base64 = await resizeImage(rawBase64);
-        setStatus('AI Analyzing...');
+        setStatus(scanMode === 'intelligence' ? 'Gemini Intelligence Analyzing...' : 'AI Fast Analyzing...');
         
-        const data = await identifyAndAppraise(base64, category);
+        const data = await identifyAndAppraise(base64, category, scanMode);
         if (data) {
           setStatus('Finalizing...');
           onResult({
@@ -116,10 +117,26 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
 
       <div className="text-center space-y-3 px-4">
         <h2 className="text-2xl font-black text-slate-900 leading-tight">Telephoto Cataloger</h2>
+        
+        <div className="flex p-1 bg-slate-100 rounded-2xl gap-1">
+          <button 
+            onClick={() => setScanMode('intelligence')}
+            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${scanMode === 'intelligence' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            Gemini Intelligence
+          </button>
+          <button 
+            onClick={() => setScanMode('fast')}
+            className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${scanMode === 'fast' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            Fast Scan
+          </button>
+        </div>
+
         <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
            <p className="text-[11px] text-indigo-700 font-bold uppercase tracking-widest leading-relaxed">
-            <span className="block mb-1 text-xs">📸 Pro Tip:</span>
-            Stand back and use your <span className="underline">3x zoom</span> for small stats.
+            <span className="block mb-1 text-xs">{scanMode === 'intelligence' ? '✨ Intelligence Mode:' : '⚡ Fast Mode:'}</span>
+            {scanMode === 'intelligence' ? 'Uses Gemini Pro for deep visual analysis and market research.' : 'Uses Gemini Flash for rapid identification.'}
           </p>
         </div>
         
