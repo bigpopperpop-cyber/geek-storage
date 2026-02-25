@@ -54,7 +54,8 @@ const App: React.FC = () => {
   const handleResult = async (item: VaultItem) => {
     await saveItem(item);
     setItems(prev => [item, ...prev.filter(i => i.id !== item.id)]);
-    setView('vault');
+    setSelectedItem(item);
+    setView('item');
   };
 
   const handleDelete = async (id: string) => {

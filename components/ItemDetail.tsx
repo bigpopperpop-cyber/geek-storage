@@ -26,11 +26,12 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
           significance: result.significance || item.significance,
           lastValued: new Date().toISOString(),
           sources: result.sources || item.sources,
-          aiJustification: result.reasoning || item.aiJustification
+          aiJustification: result.reasoning || item.aiJustification,
+          investmentOutlook: result.investmentOutlook || item.investmentOutlook
         });
       }
     } catch (err) {
-      alert("Market check failed. Try again later.");
+      alert("In-depth search failed. Try again later.");
     } finally {
       setIsUpdating(false);
     }
@@ -94,6 +95,15 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
           </div>
         )}
 
+        {item.investmentOutlook && (
+          <div className="mt-6 p-5 bg-emerald-50/50 rounded-3xl border border-emerald-100/50">
+            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+              <span className="text-base">📈</span> Collector's Verdict
+            </p>
+            <p className="text-sm font-bold text-emerald-900 leading-relaxed">{item.investmentOutlook}</p>
+          </div>
+        )}
+
         <div className="mt-10">
           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-50 pb-2">Vault Analysis</h3>
           <ul className="space-y-4">
@@ -144,9 +154,9 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               )}
-              <span>{isUpdating ? 'Researching...' : 'Deep AI Market Research'}</span>
+              <span>{isUpdating ? 'Researching...' : 'Start In-Depth Search'}</span>
             </div>
-            {!isUpdating && <span className="text-[9px] normal-case opacity-60">Finds Rookie status, 1st appearances & auction history</span>}
+            {!isUpdating && <span className="text-[9px] normal-case opacity-60">Exhaustive history, variations & population reports</span>}
           </button>
           
           <button

@@ -47,17 +47,26 @@ export const identifyAndAppraise = async (base64Image: string, category: VaultTy
   const base64Data = base64Image.split(',')[1];
   const model = mode === 'intelligence' ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
 
-  const systemInstruction = `You are an expert ${category} appraiser and cataloger.
+  const systemInstruction = `You are the Collector's Assistant. Your job is to give the Master Coder quick, basic results for collectibles like comics, coins, and cards.
+
+Rules for your responses:
+- Be Brief: No long paragraphs. Use simple bullet points in the 'facts' field.
+- Tone: Friendly but direct. If you don't know the exact price, give a 'ballpark' estimate based on recent trends.
+
+Standard Format for the data you provide:
+1. Name/Year (mapped to 'name' and 'year' fields)
+2. Estimated Value (Raw vs. Graded) (mapped to 'estimatedValue' and detailed in 'facts')
+3. One Key Thing to Look For (mapped to 'significance')
+
 Your task is to identify the specific item in the provided image and provide a detailed appraisal.
 
 Identification Steps:
-1. Perform high-accuracy OCR to extract all text from the item (Name, Year, Brand, Card Number, Series, etc.).
-2. Analyze visual elements (artwork, logos, holographic patterns, borders) to confirm the specific edition.
-3. Use Google Search to find the most recent market value (eBay sold listings, specialized marketplaces) and any special significance (e.g., Rookie Card, 1st Appearance, Short Print, Error Card).
+1. Perform high-accuracy OCR to extract all text from the item.
+2. Analyze visual elements to confirm the specific edition.
+3. Use Google Search to find the most recent market value and any special significance.
 
 Output Requirements:
 - Return ONLY a valid JSON object.
-- If identification is uncertain, provide the most likely match based on visible evidence.
 - Ensure 'estimatedValue' is a number representing USD.
 
 JSON Schema:
@@ -66,11 +75,11 @@ JSON Schema:
   "year": "YYYY",
   "brand": "Manufacturer/Publisher",
   "cardNumber": "Specific ID or Number",
-  "significance": "Key collector attributes",
+  "significance": "THE ONE KEY THING TO LOOK FOR",
   "rarity": "Common/Uncommon/Rare/Ultra-Rare",
-  "condition": "Estimated condition (e.g. Near Mint, Very Fine)",
+  "condition": "Estimated condition",
   "estimatedValue": 0.00,
-  "facts": ["Fact 1", "Fact 2", "Fact 3"]
+  "facts": ["Value breakdown (Raw vs Graded)", "Key detail 1", "Key detail 2"]
 }`;
 
   return await callWithRetry(async () => {
@@ -140,12 +149,22 @@ JSON Schema:
 export const searchAndAppraiseByText = async (query: string, category: VaultType) => {
   const ai = getAI();
 
-  const systemInstruction = `You are an expert ${category} appraiser and cataloger.
+  const systemInstruction = `You are the Collector's Assistant. Your job is to give the Master Coder quick, basic results for collectibles like comics, coins, and cards.
+
+Rules for your responses:
+- Be Brief: No long paragraphs. Use simple bullet points in the 'facts' field.
+- Tone: Friendly but direct. If you don't know the exact price, give a 'ballpark' estimate based on recent trends.
+
+Standard Format for the data you provide:
+1. Name/Year (mapped to 'name' and 'year' fields)
+2. Estimated Value (Raw vs. Graded) (mapped to 'estimatedValue' and detailed in 'facts')
+3. One Key Thing to Look For (mapped to 'significance')
+
 Your task is to identify the specific item described by the user and provide a detailed appraisal using real-time market data.
 
 Steps:
-1. Use Google Search to find the exact item, its current market value (eBay sold listings, specialized marketplaces), and any special significance (e.g., Rookie Card, 1st Appearance, Short Print, Error Card).
-2. Determine the rarity and typical condition for such an item.
+1. Use Google Search to find the exact item, its current market value, and any special significance.
+2. Determine the rarity and typical condition.
 
 Output Requirements:
 - Return ONLY a valid JSON object.
@@ -157,11 +176,11 @@ JSON Schema:
   "year": "YYYY",
   "brand": "Manufacturer/Publisher",
   "cardNumber": "Specific ID or Number",
-  "significance": "Key collector attributes",
+  "significance": "THE ONE KEY THING TO LOOK FOR",
   "rarity": "Common/Uncommon/Rare/Ultra-Rare",
-  "condition": "Typical condition (e.g. Near Mint)",
+  "condition": "Typical condition",
   "estimatedValue": 0.00,
-  "facts": ["Fact 1", "Fact 2", "Fact 3"]
+  "facts": ["Value breakdown (Raw vs Graded)", "Key detail 1", "Key detail 2"]
 }`;
 
   return await callWithRetry(async () => {
@@ -226,10 +245,21 @@ JSON Schema:
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
   return callWithRetry(async () => {
-    const query = `Latest auction prices and significance for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}). Return JSON.`;
+    const query = `Perform an exhaustive, in-depth market analysis and historical research for this collectible:
+Item: ${item.year} ${item.brand} ${item.title} ${item.subTitle}
+Category: ${item.category}
+
+Research Requirements:
+1. Historical Significance: Find the exact origin, why it's valuable, and any famous sales or owners.
+2. Market Variations: Identify all known variations (refractors, errors, printing differences) and how they affect value.
+3. Population & Scarcity: Search for population reports (PSA/CGC/PCGS) or estimated print runs.
+4. Real-time Pricing: Find the most recent 3-5 sold listings from major auction houses or eBay.
+5. Investment Outlook: Provide a brief "Collector's Verdict" on its long-term potential.
+
+Return ONLY a JSON object.`;
 
     const result = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-3.1-pro-preview',
       contents: query,
       config: { 
         tools: [{ googleSearch: {} }],
@@ -240,9 +270,10 @@ export const reEvaluateItem = async (item: VaultItem) => {
             estimatedValue: { type: Type.NUMBER },
             updatedFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
             significance: { type: Type.STRING },
-            reasoning: { type: Type.STRING }
+            reasoning: { type: Type.STRING },
+            investmentOutlook: { type: Type.STRING }
           },
-          required: ["estimatedValue", "updatedFacts", "significance", "reasoning"]
+          required: ["estimatedValue", "updatedFacts", "significance", "reasoning", "investmentOutlook"]
         }
       }
     });

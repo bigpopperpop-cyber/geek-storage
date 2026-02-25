@@ -25,6 +25,7 @@ export interface VaultItem {
   aiJustification?: string;
   keyFeatures?: string;
   notes?: string;
+  investmentOutlook?: string;
 }
 
 export const VAULT_CONFIG = {
