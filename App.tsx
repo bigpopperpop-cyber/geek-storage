@@ -11,6 +11,7 @@ import Navbar from './components/Navbar';
 import Reports from './components/Reports';
 import SearchFilter, { FilterState } from './components/SearchFilter';
 import TextSearchAdd from './components/TextSearchAdd';
+import ManualAdd from './components/ManualAdd';
 import { aiFilterItems } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -41,8 +42,13 @@ const App: React.FC = () => {
     });
 
     const handleSwitchToSearch = () => setView('search_add');
+    const handleSwitchToManual = () => setView('manual_add');
     window.addEventListener('switch-to-search', handleSwitchToSearch);
-    return () => window.removeEventListener('switch-to-search', handleSwitchToSearch);
+    window.addEventListener('switch-to-manual', handleSwitchToManual);
+    return () => {
+      window.removeEventListener('switch-to-search', handleSwitchToSearch);
+      window.removeEventListener('switch-to-manual', handleSwitchToManual);
+    };
   }, []);
 
   const handleResult = async (item: VaultItem) => {
@@ -161,6 +167,10 @@ const App: React.FC = () => {
 
         {view === 'search_add' && (
           <TextSearchAdd category={activeVault} onCancel={() => setView('vault')} onResult={handleResult} />
+        )}
+
+        {view === 'manual_add' && (
+          <ManualAdd category={activeVault} onCancel={() => setView('vault')} onResult={handleResult} />
         )}
 
         {view === 'item' && selectedItem && (

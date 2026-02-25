@@ -34,7 +34,7 @@ const resizeImage = (base64Str: string): Promise<string> => {
 const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState('');
-  const [scanMode, setScanMode] = useState<'fast' | 'intelligence'>('intelligence');
+  const [scanMode, setScanMode] = useState<'fast' | 'intelligence'>('fast');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,7 +141,7 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
         </div>
         
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-2">
-          Hit limits? <button onClick={() => window.dispatchEvent(new CustomEvent('switch-to-search'))} className="text-indigo-600 underline">Try AI Text Search</button>
+          Hit limits? <button onClick={() => window.dispatchEvent(new CustomEvent('switch-to-search'))} className="text-indigo-600 underline">Try AI Text Search</button> or <button onClick={() => window.dispatchEvent(new CustomEvent('switch-to-manual'))} className="text-slate-600 underline">Add Manually</button>
         </p>
       </div>
 

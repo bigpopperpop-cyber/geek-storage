@@ -93,9 +93,12 @@ const TextSearchAdd: React.FC<TextSearchAddProps> = ({ category, onCancel, onRes
         </button>
       </form>
 
-      <div className="text-center">
+      <div className="text-center space-y-2">
         <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
           Uses Gemini Flash with Google Search
+        </p>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          Hitting limits? <button onClick={() => window.dispatchEvent(new CustomEvent('switch-to-manual'))} className="text-indigo-600 underline">Add Manually</button>
         </p>
       </div>
     </div>

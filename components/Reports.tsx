@@ -14,16 +14,20 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
   const [insights, setInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [lastInsightCount, setLastInsightCount] = useState(-1);
   const categories = Object.keys(VAULT_CONFIG) as (keyof typeof VAULT_CONFIG)[];
 
   useEffect(() => {
-    if (items.length > 0) {
+    if (items.length > 0 && items.length !== lastInsightCount) {
       setLoadingInsights(true);
       getCollectionInsights(items)
-        .then(setInsights)
+        .then((newInsights) => {
+          setInsights(newInsights);
+          setLastInsightCount(items.length);
+        })
         .finally(() => setLoadingInsights(false));
     }
-  }, [items]);
+  }, [items, lastInsightCount]);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

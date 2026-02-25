@@ -5,7 +5,7 @@ import { VaultType, VaultItem } from "../types";
 const getAI = () => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("Gemini API Key is missing. Please ensure your environment is configured or a key is selected.");
+    throw new Error("Gemini API Key is missing.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -45,7 +45,7 @@ const extractJSON = (text: string) => {
 export const identifyAndAppraise = async (base64Image: string, category: VaultType, mode: 'fast' | 'intelligence' = 'intelligence') => {
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
-  const model = mode === 'intelligence' ? 'gemini-3.1-pro-preview' : 'gemini-flash-latest';
+  const model = mode === 'intelligence' ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
 
   const systemInstruction = `You are an expert ${category} appraiser and cataloger.
 Your task is to identify the specific item in the provided image and provide a detailed appraisal.
@@ -166,7 +166,7 @@ JSON Schema:
 
   return await callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-3-flash-preview',
       contents: `Identify and appraise this ${category} item: "${query}". Return JSON.`,
       config: {
         systemInstruction,
@@ -287,7 +287,7 @@ Return ONLY a JSON array of strings (the IDs). If no items match, return an empt
 
   return callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-3-flash-preview',
       contents: `User Query: "${query}"\n\nItems to filter:\n${JSON.stringify(itemSummary)}`,
       config: {
         systemInstruction,
@@ -318,7 +318,7 @@ Return ONLY a JSON array of 3 strings.`;
 
   return callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-3-flash-preview',
       contents: `Collection Summary: ${summary}`,
       config: {
         systemInstruction,
