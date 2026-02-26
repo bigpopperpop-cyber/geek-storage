@@ -19,6 +19,42 @@ const TextSearchAdd: React.FC<TextSearchAddProps> = ({ category, onCancel, onRes
     e.preventDefault();
     if (!query.trim()) return;
 
+    // Data Bridge: Check if input is a JSON block
+    if (query.trim().startsWith('{') && query.trim().endsWith('}')) {
+      try {
+        const data = JSON.parse(query.trim());
+        if (data.name) {
+          // Clean up value (remove $ and commas)
+          const rawValue = typeof data.value === 'string' 
+            ? parseFloat(data.value.replace(/[$,]/g, '')) 
+            : (typeof data.value === 'number' ? data.value : 0);
+
+          const newItem: VaultItem = {
+            id: Date.now().toString(36),
+            category,
+            title: data.name,
+            subTitle: data.year || '',
+            year: data.year || '',
+            brand: '',
+            cardNumber: '',
+            significance: 'Imported via Data Bridge',
+            condition: data.condition || 'Raw',
+            estimatedValue: isNaN(rawValue) ? 0 : rawValue,
+            facts: ['Imported from external research'],
+            dateAdded: new Date().toISOString(),
+            lastValued: new Date().toISOString(),
+          };
+
+          alert(`Got it, Master Coder! ${data.name} has been added to the vault.`);
+          onResult(newItem);
+          return;
+        }
+      } catch (e) {
+        // Not valid JSON or missing name, fall back to AI search
+        console.log("Not a valid Data Bridge block, falling back to AI search");
+      }
+    }
+
     setProcessing(true);
     setStatus('AI Researching...');
 
@@ -56,10 +92,16 @@ const TextSearchAdd: React.FC<TextSearchAddProps> = ({ category, onCancel, onRes
         <h2 className="text-2xl font-black text-slate-900">AI Text Search</h2>
       </div>
 
-      <div className="bg-indigo-50 p-5 rounded-3xl border border-indigo-100">
+      <div className="bg-indigo-50 p-5 rounded-3xl border border-indigo-100 space-y-3">
         <p className="text-xs text-indigo-700 font-bold leading-relaxed">
           Describe your item in detail (e.g., "1996 Topps Kobe Bryant Rookie Card #138") and Gemini will find the market value and specs for you.
         </p>
+        <div className="pt-2 border-t border-indigo-100">
+          <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest mb-1">⚡ Data Bridge Mode</p>
+          <p className="text-[10px] text-indigo-600/70 font-medium">
+            Paste a JSON block from your external research to instantly import data.
+          </p>
+        </div>
       </div>
 
       <form onSubmit={handleSearch} className="space-y-6">
