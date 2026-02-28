@@ -34,10 +34,10 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
     setIsUpdating(true);
     try {
       const result = await reEvaluateItem(item);
-      if (result) {
+      if (result && (result.estimatedValue !== undefined || result.updatedFacts)) {
         onUpdate({
           ...item,
-          estimatedValue: result.estimatedValue,
+          estimatedValue: result.estimatedValue ?? item.estimatedValue,
           facts: result.updatedFacts || item.facts,
           significance: result.significance || item.significance,
           lastValued: new Date().toISOString(),
@@ -45,9 +45,12 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
           aiJustification: result.reasoning || item.aiJustification,
           investmentOutlook: result.investmentOutlook || item.investmentOutlook
         });
+      } else {
+        throw new Error("No data returned from AI");
       }
-    } catch (err) {
-      alert("In-depth search failed. Try again later.");
+    } catch (err: any) {
+      console.error("In-depth search error:", err);
+      alert("In-depth search failed. This can happen if the AI is busy or the item is very rare. Please try again in a moment.");
     } finally {
       setIsUpdating(false);
     }

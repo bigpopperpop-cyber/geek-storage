@@ -220,24 +220,26 @@ JSON Schema:
 
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
-  return callWithRetry(async () => {
-    const query = `Perform an exhaustive, in-depth market analysis and historical research for this collectible:
-Item: ${item.year} ${item.brand} ${item.title} ${item.subTitle}
-Category: ${item.category}
-
-Research Requirements:
-1. Historical Significance: Find the exact origin, why it's valuable, and any famous sales or owners.
-2. Market Variations: Identify all known variations (refractors, errors, printing differences) and how they affect value.
-3. Population & Scarcity: Search for population reports (PSA/CGC/PCGS) or estimated print runs.
-4. Real-time Pricing: Find the most recent 3-5 sold listings from major auction houses or eBay.
-5. Investment Outlook: Provide a brief "Collector's Verdict" on its long-term potential.
+  
+  const systemInstruction = `You are a professional collectible appraiser.
+Your task is to perform an in-depth market analysis for the item provided.
+Search for:
+1. Historical significance and origin.
+2. Known variations and their impact on value.
+3. Population reports and scarcity.
+4. Recent sold prices.
+5. Investment outlook.
 
 Return ONLY a JSON object.`;
+
+  return callWithRetry(async () => {
+    const query = `In-depth research for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category})`;
 
     const result = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: query,
       config: { 
+        systemInstruction,
         tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: {
@@ -249,18 +251,25 @@ Return ONLY a JSON object.`;
             reasoning: { type: Type.STRING },
             investmentOutlook: { type: Type.STRING }
           },
-          required: ["estimatedValue", "updatedFacts", "significance", "reasoning", "investmentOutlook"]
+          required: ["estimatedValue", "updatedFacts", "significance"]
         }
       }
     });
 
-    const sources = result.candidates?.[0]?.groundingMetadata?.groundingChunks
-      ?.filter((c: any) => c.web)
-      ?.map((c: any) => ({ title: c.web.title || "Market Source", uri: c.web.uri })) || [];
+    const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const sources = groundingChunks
+      .filter((chunk: any) => chunk.web)
+      .map((chunk: any) => ({
+        title: chunk.web.title || "Market Source",
+        uri: chunk.web.uri
+      }));
 
-    const data = extractJSON(result.text || '');
-    return data ? { ...data, sources } : null;
-  });
+    const data = extractJSON(result.text || '{}');
+    if (data) {
+      return { ...data, sources };
+    }
+    return null;
+  }, 3, 3000);
 };
 
 export const aiFilterItems = async (query: string, items: VaultItem[]) => {
