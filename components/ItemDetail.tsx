@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { VaultItem, VAULT_CONFIG } from '../types';
 import { reEvaluateItem } from '../services/geminiService';
+import { Camera } from 'lucide-react';
 
 interface DetailProps {
   item: VaultItem;
@@ -12,7 +13,22 @@ interface DetailProps {
 
 const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack }) => {
   const [isUpdating, setIsUpdating] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const theme = VAULT_CONFIG[item.category];
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onUpdate({
+          ...item,
+          image: reader.result as string
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleReValue = async () => {
     setIsUpdating(true);
@@ -45,6 +61,26 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
         ) : (
           <div className="w-full h-full flex items-center justify-center text-6xl opacity-20">🖼️</div>
         )}
+        
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="p-4 bg-white/20 backdrop-blur-md text-white rounded-full border border-white/30 pointer-events-auto hover:bg-white/30 transition-all active:scale-90"
+            title="Update photo"
+          >
+            <Camera className="w-6 h-6" />
+          </button>
+        </div>
+
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleImageChange} 
+          accept="image/*" 
+          className="hidden" 
+          capture="environment"
+        />
+
         <button 
           onClick={onBack}
           className="absolute top-6 left-6 bg-black/50 text-white p-3 rounded-full backdrop-blur-lg hover:bg-black/70 transition-all active:scale-90"

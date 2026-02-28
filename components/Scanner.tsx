@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { VaultType, VaultItem } from '../types';
-import { identifyAndAppraise } from '../services/geminiService';
+import { identifyItemFromImage, appraiseIdentifiedItem } from '../services/geminiService';
 
 interface ScannerProps {
   category: VaultType;
@@ -49,9 +49,38 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
       
       try {
         const base64 = await resizeImage(rawBase64);
-        setStatus(scanMode === 'intelligence' ? 'Gemini Intelligence Analyzing...' : 'AI Fast Analyzing...');
         
-        const data = await identifyAndAppraise(base64, category, scanMode);
+        // Step 1: Visual Identification
+        setStatus('Identifying Card...');
+        const identified = await identifyItemFromImage(base64, category);
+        
+        if (!identified || !identified.name) {
+          throw new Error("Could not identify the item. Please try a clearer photo.");
+        }
+
+        // Step 2: Market Research
+        setStatus(`Found: ${identified.name}. Researching Value...`);
+        let data;
+        try {
+          data = await appraiseIdentifiedItem(identified, category);
+        } catch (appraisalErr) {
+          console.warn("Appraisal failed, but identification succeeded:", appraisalErr);
+          // Fallback to identified data with zero value
+          data = {
+            title: identified.name,
+            subTitle: identified.cardNumber ? `#${identified.cardNumber}` : '',
+            year: identified.year,
+            brand: identified.brand,
+            cardNumber: identified.cardNumber,
+            significance: "Identified via Vision (Market Research failed)",
+            rarity: "Unknown",
+            condition: "Raw",
+            estimatedValue: 0,
+            facts: ["Could not fetch real-time market data. Please update manually."],
+            sources: []
+          };
+        }
+        
         if (data) {
           setStatus('Finalizing...');
           onResult({

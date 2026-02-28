@@ -40,60 +40,32 @@ const extractJSON = (text: string) => {
 };
 
 /**
- * One-shot Identification and Research to save quota.
+ * Step 1: Fast Vision Identification (No Search)
  */
-export const identifyAndAppraise = async (base64Image: string, category: VaultType, mode: 'fast' | 'intelligence' = 'intelligence') => {
+export const identifyItemFromImage = async (base64Image: string, category: VaultType) => {
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
-  const model = mode === 'intelligence' ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
+  
+  const systemInstruction = `You are a high-speed OCR and visual recognition system for ${category} collectibles.
+Your ONLY task is to extract the following text from the image:
+1. Item Name (e.g., "Charizard", "Kobe Bryant")
+2. Year (e.g., "1999", "2023")
+3. Brand/Set (e.g., "Base Set", "Panini Prizm")
+4. Card Number/ID (e.g., "4/102", "#138")
 
-  const systemInstruction = `You are the Collector's Assistant. Your job is to give the Master Coder quick, basic results for collectibles like comics, coins, and cards.
-
-Rules for your responses:
-- Be Brief: No long paragraphs. Use simple bullet points in the 'facts' field.
-- Tone: Friendly but direct. If you don't know the exact price, give a 'ballpark' estimate based on recent trends.
-
-Standard Format for the data you provide:
-1. Name/Year (mapped to 'name' and 'year' fields)
-2. Estimated Value (Raw vs. Graded) (mapped to 'estimatedValue' and detailed in 'facts')
-3. One Key Thing to Look For (mapped to 'significance')
-
-Your task is to identify the specific item in the provided image and provide a detailed appraisal.
-
-Identification Steps:
-1. Perform high-accuracy OCR to extract all text from the item.
-2. Analyze visual elements to confirm the specific edition.
-3. Use Google Search to find the most recent market value and any special significance.
-
-Output Requirements:
-- Return ONLY a valid JSON object.
-- Ensure 'estimatedValue' is a number representing USD.
-
-JSON Schema:
-{
-  "name": "Full Name of Item",
-  "year": "YYYY",
-  "brand": "Manufacturer/Publisher",
-  "cardNumber": "Specific ID or Number",
-  "significance": "THE ONE KEY THING TO LOOK FOR",
-  "rarity": "Common/Uncommon/Rare/Ultra-Rare",
-  "condition": "Estimated condition",
-  "estimatedValue": 0.00,
-  "facts": ["Value breakdown (Raw vs Graded)", "Key detail 1", "Key detail 2"]
-}`;
+Return ONLY a JSON object. Do NOT perform any external searches.`;
 
   return await callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: model,
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: `Identify and appraise this ${category} item. Focus on reading small text and identifying the specific edition. Return JSON.` }
+          { text: "Read the text on this card and identify it. Return JSON." }
         ]
       },
       config: {
         systemInstruction,
-        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -101,49 +73,53 @@ JSON Schema:
             name: { type: Type.STRING },
             year: { type: Type.STRING },
             brand: { type: Type.STRING },
-            cardNumber: { type: Type.STRING },
-            significance: { type: Type.STRING },
-            rarity: { type: Type.STRING },
-            condition: { type: Type.STRING },
-            estimatedValue: { type: Type.NUMBER },
-            facts: { type: Type.ARRAY, items: { type: Type.STRING } }
+            cardNumber: { type: Type.STRING }
           },
-          required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts", "rarity", "condition"]
+          required: ["name", "year", "brand", "cardNumber"]
         }
       }
     });
 
-    let data;
-    try {
-      data = JSON.parse(result.text || '{}');
-    } catch (e) {
-      data = extractJSON(result.text || '');
-    }
-    const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources = groundingChunks
-      .filter((chunk: any) => chunk.web)
-      .map((chunk: any) => ({
-        title: chunk.web.title || "Market Source",
-        uri: chunk.web.uri
-      }));
+    return extractJSON(result.text || '{}');
+  }, 3, 2000);
+};
 
-    if (data) {
-      return {
-        title: data.name,
-        subTitle: data.cardNumber ? `#${data.cardNumber}` : '',
-        year: data.year,
-        brand: data.brand,
-        cardNumber: data.cardNumber,
-        significance: data.significance + (mode === 'fast' ? ' (Fast Scan)' : ''),
-        rarity: data.rarity,
-        condition: data.condition,
-        estimatedValue: data.estimatedValue,
-        facts: data.facts,
-        sources
-      };
-    }
-    throw new Error("Could not parse AI response.");
-  }, mode === 'intelligence' ? 3 : 5, 3000);
+/**
+ * Step 2: Market Research based on identified text
+ */
+export const appraiseIdentifiedItem = async (identifiedData: any, category: VaultType) => {
+  const query = `${identifiedData.year} ${identifiedData.brand} ${identifiedData.name} ${identifiedData.cardNumber}`;
+  return await searchAndAppraiseByText(query, category);
+};
+
+/**
+ * Legacy wrapper for backward compatibility, now using the two-step process
+ */
+export const identifyAndAppraise = async (base64Image: string, category: VaultType, mode: 'fast' | 'intelligence' = 'intelligence') => {
+  // We'll use the new two-step process here to fix the timeout issues
+  const identified = await identifyItemFromImage(base64Image, category);
+  if (!identified || !identified.name) {
+    throw new Error("Could not identify the item from the image. Please try a clearer photo.");
+  }
+  
+  try {
+    return await appraiseIdentifiedItem(identified, category);
+  } catch (err) {
+    // Fallback if appraisal fails but identification worked
+    return {
+      title: identified.name,
+      subTitle: identified.cardNumber ? `#${identified.cardNumber}` : '',
+      year: identified.year,
+      brand: identified.brand,
+      cardNumber: identified.cardNumber,
+      significance: "Identified via Vision (Market Research failed)",
+      rarity: "Unknown",
+      condition: "Raw",
+      estimatedValue: 0,
+      facts: ["Could not fetch real-time market data. Please update manually."],
+      sources: []
+    };
+  }
 };
 
 export const searchAndAppraiseByText = async (query: string, category: VaultType) => {

@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { VaultType, VaultItem } from '../types';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Camera, X } from 'lucide-react';
 
 interface ManualAddProps {
   category: VaultType;
@@ -21,6 +21,19 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
     significance: '',
     notes: ''
   });
+  const [image, setImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +54,7 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
       facts: formData.notes ? [formData.notes] : ['Manually added item'],
       dateAdded: new Date().toISOString(),
       lastValued: new Date().toISOString(),
+      image: image || undefined
     });
   };
 
@@ -54,6 +68,47 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Image Upload Section */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Item Photo</label>
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            className="relative aspect-video bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 transition-colors overflow-hidden group"
+          >
+            {image ? (
+              <>
+                <img src={image} className="w-full h-full object-cover" alt="Preview" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="w-8 h-8 text-white" />
+                </div>
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setImage(null);
+                  }}
+                  className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-slate-400">
+                <Camera className="w-8 h-8" />
+                <span className="text-xs font-bold">Tap to add photo</span>
+              </div>
+            )}
+          </div>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleImageChange} 
+            accept="image/*" 
+            className="hidden" 
+            capture="environment"
+          />
+        </div>
+
         <div className="space-y-1">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Item Name *</label>
           <input
