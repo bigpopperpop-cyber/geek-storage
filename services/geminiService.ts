@@ -69,6 +69,7 @@ Step 3: Return the confirmed identity in JSON format.` }
       },
       config: {
         systemInstruction,
+        tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
