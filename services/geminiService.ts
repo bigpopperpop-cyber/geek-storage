@@ -46,7 +46,16 @@ export const identifyItemFromImage = async (base64Image: string, category: Vault
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
   
-  const systemInstruction = `You are an expert appraiser and visual recognition specialist for ${category} collectibles.
+  const systemInstruction = category === 'sports' 
+    ? `You are an expert Sports Trading Card Digitizer. Your goal is to analyze uploaded images of sports cards and extract precise metadata.
+
+MANDATORY RULES:
+1. ALWAYS detect the following: Player Name, Year, Brand, Set/Series, Card Number, Team, and Sport.
+2. LOOK for specific parallel indicators (e.g., Gold, Refractor, Printer's Proof).
+3. OUTPUT the results strictly in JSON format.
+4. If a value is not visible, return "Unknown" rather than guessing.
+5. Identify the "Key Attribute" (e.g., Rookie Card, Hall of Famer, Insert).`
+    : `You are an expert appraiser and visual recognition specialist for ${category} collectibles.
 Your task is to identify items with 100% precision.
 
 MANDATORY PROCESS:
@@ -57,12 +66,54 @@ MANDATORY PROCESS:
 Return a JSON object with the identified details.`;
 
   return await callWithRetry(async () => {
+    const responseSchema = category === 'sports' ? {
+      type: Type.OBJECT,
+      properties: {
+        card_id: { type: Type.STRING, description: "Format: Year-Brand-Number" },
+        details: {
+          type: Type.OBJECT,
+          properties: {
+            player: { type: Type.STRING },
+            year: { type: Type.INTEGER },
+            brand: { type: Type.STRING },
+            set: { type: Type.STRING },
+            number: { type: Type.STRING },
+            team: { type: Type.STRING },
+            sport: { type: Type.STRING },
+            key_attribute: { type: Type.STRING }
+          },
+          required: ["player", "year", "brand", "number", "team", "sport"]
+        },
+        visual_check: {
+          type: Type.OBJECT,
+          properties: {
+            condition_notes: { type: Type.STRING },
+            parallel_type: { type: Type.STRING }
+          },
+          required: ["condition_notes", "parallel_type"]
+        }
+      },
+      required: ["card_id", "details", "visual_check"]
+    } : {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING },
+        year: { type: Type.STRING },
+        brand: { type: Type.STRING },
+        cardNumber: { type: Type.STRING },
+        uncertaintyReason: { type: Type.STRING, description: "Explain any uncertainty in identification" }
+      },
+      required: ["name", "year", "brand", "cardNumber"]
+    };
+
     const result = await ai.models.generateContent({
       model: 'gemini-3.1-pro-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: `Step 1: Analyze the text on this ${category} item and its visual features.
+          { text: category === 'sports' 
+            ? "Digitize this sports card. Extract all metadata and identify key attributes."
+            : `Step 1: Analyze the text on this ${category} item and its visual features.
 Step 2: Identify the specific Year, Brand, Player/Character Name, and Card Number.
 Step 3: Return the confirmed identity in JSON format.` }
         ]
@@ -71,21 +122,29 @@ Step 3: Return the confirmed identity in JSON format.` }
         systemInstruction,
         tools: [{ googleSearch: {} }],
         responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            year: { type: Type.STRING },
-            brand: { type: Type.STRING },
-            cardNumber: { type: Type.STRING },
-            uncertaintyReason: { type: Type.STRING, description: "Explain any uncertainty in identification" }
-          },
-          required: ["name", "year", "brand", "cardNumber"]
-        }
+        responseSchema: responseSchema as any
       }
     });
 
-    return extractJSON(result.text || '{}');
+    const rawData = extractJSON(result.text || '{}');
+    
+    // Normalize for the rest of the app
+    if (category === 'sports' && rawData.details) {
+      return {
+        name: rawData.details.player,
+        year: String(rawData.details.year),
+        brand: rawData.details.brand,
+        cardNumber: rawData.details.number,
+        team: rawData.details.team,
+        sport: rawData.details.sport,
+        set: rawData.details.set,
+        significance: rawData.details.key_attribute,
+        parallel: rawData.visual_check?.parallel_type,
+        conditionNotes: rawData.visual_check?.condition_notes
+      };
+    }
+    
+    return rawData;
   }, 3, 2000);
 };
 
