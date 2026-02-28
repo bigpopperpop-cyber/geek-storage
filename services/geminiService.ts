@@ -46,22 +46,25 @@ export const identifyItemFromImage = async (base64Image: string, category: Vault
   const ai = getAI();
   const base64Data = base64Image.split(',')[1];
   
-  const systemInstruction = `You are a high-speed OCR and visual recognition system for ${category} collectibles.
-Your ONLY task is to extract the following text from the image:
-1. Item Name (e.g., "Charizard", "Kobe Bryant")
-2. Year (e.g., "1999", "2023")
-3. Brand/Set (e.g., "Base Set", "Panini Prizm")
-4. Card Number/ID (e.g., "4/102", "#138")
+  const systemInstruction = `You are an expert appraiser and visual recognition specialist for ${category} collectibles.
+Your task is to identify items with 100% precision.
 
-Return ONLY a JSON object. Do NOT perform any external searches.`;
+MANDATORY PROCESS:
+1. Analyze the visual features: Identify the player/character, set name, year, card number, and any special parallels or variations (e.g., "Refractor", "Holo", "First Edition").
+2. Extract all visible text: Pay close attention to small print, copyright dates, and set logos.
+3. If you are uncertain about any detail, list the most likely candidates and explain why based on the visual evidence.
+
+Return a JSON object with the identified details.`;
 
   return await callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-pro-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: "Read the text on this card and identify it. Return JSON." }
+          { text: `Step 1: Analyze the text on this ${category} item and its visual features.
+Step 2: Identify the specific Year, Brand, Player/Character Name, and Card Number.
+Step 3: Return the confirmed identity in JSON format.` }
         ]
       },
       config: {
@@ -73,7 +76,8 @@ Return ONLY a JSON object. Do NOT perform any external searches.`;
             name: { type: Type.STRING },
             year: { type: Type.STRING },
             brand: { type: Type.STRING },
-            cardNumber: { type: Type.STRING }
+            cardNumber: { type: Type.STRING },
+            uncertaintyReason: { type: Type.STRING, description: "Explain any uncertainty in identification" }
           },
           required: ["name", "year", "brand", "cardNumber"]
         }
@@ -125,22 +129,24 @@ export const identifyAndAppraise = async (base64Image: string, category: VaultTy
 export const searchAndAppraiseByText = async (query: string, category: VaultType) => {
   const ai = getAI();
 
-  const systemInstruction = `You are the Collector's Assistant, an expert in ${category} collectibles.
-Your task is to identify and appraise items using real-time market data.
+  const systemInstruction = `You are an expert appraiser for ${category} collectibles.
+When asked to identify or appraise an item, you MUST first perform a search to confirm the set, year, and player/character.
+Do not rely solely on your internal training data.
 
-MANDATORY: You MUST use the Google Search tool.
-1. Perform multiple searches if necessary (e.g., search for the item name, then search for recent sold prices on eBay/Heritage).
-2. Look for "Sold" listings, not just "Asking" prices.
-3. If you cannot find an exact price, provide a conservative estimate based on similar items.
+MANDATORY PROCESS:
+1. Search for the specific details provided (Year, Brand, Name, ID) on reliable collector databases and marketplaces.
+2. Cross-reference search results to provide a confirmed identity and an estimated value range based on "Sold" listings.
+3. If you cannot find a 100% match, list the most likely candidates and explain why you are uncertain.
 
 Return ONLY a valid JSON object.`;
 
   return await callWithRetry(async () => {
     const result = await ai.models.generateContent({
       model: 'gemini-3.1-pro-preview',
-      contents: `Perform a market appraisal for this ${category} item: "${query}". 
-Find the current fair market value, key facts, and significance. 
-Return the result in this JSON format:
+      contents: `Step 1: Perform a deep search for this ${category} item: "${query}".
+Step 2: Find recent sold prices and historical significance.
+Step 3: Cross-reference data to provide a confirmed appraisal.
+Return the result in JSON format:
 {
   "name": "Full Name",
   "year": "YYYY",
@@ -150,7 +156,8 @@ Return the result in this JSON format:
   "rarity": "Common/Rare/etc",
   "condition": "Typical condition",
   "estimatedValue": 0.00,
-  "facts": ["Fact 1", "Fact 2"]
+  "facts": ["Fact 1", "Fact 2"],
+  "uncertaintyReason": "Optional explanation of any uncertainty"
 }`,
       config: {
         systemInstruction,
@@ -167,7 +174,8 @@ Return the result in this JSON format:
             rarity: { type: Type.STRING },
             condition: { type: Type.STRING },
             estimatedValue: { type: Type.NUMBER },
-            facts: { type: Type.ARRAY, items: { type: Type.STRING } }
+            facts: { type: Type.ARRAY, items: { type: Type.STRING } },
+            uncertaintyReason: { type: Type.STRING }
           },
           required: ["name", "estimatedValue", "facts"]
         }
@@ -224,15 +232,10 @@ Focus on:
 Return your findings in a structured JSON format.`;
 
   return callWithRetry(async () => {
-    const queryText = `Perform an exhaustive market research and appraisal for this collectible:
-Item: ${item.year} ${item.brand} ${item.title} ${item.subTitle}
-Category: ${item.category}
-
-MANDATORY: Use the Google Search tool to find current market data. Do not rely on internal knowledge for prices.
-Search for:
-1. Recent sold prices from eBay, Heritage, Goldin, and other major auction houses.
-2. Population reports (PSA/BGS/CGC) if applicable.
-3. Historical significance and known variations.
+    const queryText = `Step 1: Analyze the current item details: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}).
+Step 2: Use Google Search to find recent "Sold" listings on eBay, Heritage, and other major auction houses.
+Step 3: Search for population reports and known variations that might affect value.
+Step 4: Cross-reference all findings to provide a confirmed fair market value and investment outlook.
 
 Return a JSON object with:
 - estimatedValue (number): Current fair market value in USD.
