@@ -125,44 +125,33 @@ export const identifyAndAppraise = async (base64Image: string, category: VaultTy
 export const searchAndAppraiseByText = async (query: string, category: VaultType) => {
   const ai = getAI();
 
-  const systemInstruction = `You are the Collector's Assistant. Your job is to give the Master Coder quick, basic results for collectibles like comics, coins, and cards.
+  const systemInstruction = `You are the Collector's Assistant, an expert in ${category} collectibles.
+Your task is to identify and appraise items using real-time market data.
 
-Rules for your responses:
-- Be Brief: No long paragraphs. Use simple bullet points in the 'facts' field.
-- Tone: Friendly but direct. If you don't know the exact price, give a 'ballpark' estimate based on recent trends.
+MANDATORY: You MUST use the Google Search tool.
+1. Perform multiple searches if necessary (e.g., search for the item name, then search for recent sold prices on eBay/Heritage).
+2. Look for "Sold" listings, not just "Asking" prices.
+3. If you cannot find an exact price, provide a conservative estimate based on similar items.
 
-Standard Format for the data you provide:
-1. Name/Year (mapped to 'name' and 'year' fields)
-2. Estimated Value (Raw vs. Graded) (mapped to 'estimatedValue' and detailed in 'facts')
-3. One Key Thing to Look For (mapped to 'significance')
-
-Your task is to identify the specific item described by the user and provide a detailed appraisal using real-time market data.
-
-Steps:
-1. Use Google Search to find the exact item, its current market value, and any special significance.
-2. Determine the rarity and typical condition.
-
-Output Requirements:
-- Return ONLY a valid JSON object.
-- Ensure 'estimatedValue' is a number representing USD.
-
-JSON Schema:
-{
-  "name": "Full Name of Item",
-  "year": "YYYY",
-  "brand": "Manufacturer/Publisher",
-  "cardNumber": "Specific ID or Number",
-  "significance": "THE ONE KEY THING TO LOOK FOR",
-  "rarity": "Common/Uncommon/Rare/Ultra-Rare",
-  "condition": "Typical condition",
-  "estimatedValue": 0.00,
-  "facts": ["Value breakdown (Raw vs Graded)", "Key detail 1", "Key detail 2"]
-}`;
+Return ONLY a valid JSON object.`;
 
   return await callWithRetry(async () => {
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Identify and appraise this ${category} item: "${query}". Return JSON.`,
+      model: 'gemini-3.1-pro-preview',
+      contents: `Perform a market appraisal for this ${category} item: "${query}". 
+Find the current fair market value, key facts, and significance. 
+Return the result in this JSON format:
+{
+  "name": "Full Name",
+  "year": "YYYY",
+  "brand": "Manufacturer",
+  "cardNumber": "ID",
+  "significance": "Key detail",
+  "rarity": "Common/Rare/etc",
+  "condition": "Typical condition",
+  "estimatedValue": 0.00,
+  "facts": ["Fact 1", "Fact 2"]
+}`,
       config: {
         systemInstruction,
         tools: [{ googleSearch: {} }],
@@ -180,7 +169,7 @@ JSON Schema:
             estimatedValue: { type: Type.NUMBER },
             facts: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
-          required: ["name", "year", "brand", "cardNumber", "significance", "estimatedValue", "facts", "rarity", "condition"]
+          required: ["name", "estimatedValue", "facts"]
         }
       }
     });
@@ -191,6 +180,7 @@ JSON Schema:
     } catch (e) {
       data = extractJSON(result.text || '');
     }
+    
     const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources = groundingChunks
       .filter((chunk: any) => chunk.web)
@@ -199,23 +189,23 @@ JSON Schema:
         uri: chunk.web.uri
       }));
 
-    if (data) {
+    if (data && data.name) {
       return {
         title: data.name,
-        subTitle: data.cardNumber ? `#${data.cardNumber}` : '',
-        year: data.year,
-        brand: data.brand,
-        cardNumber: data.cardNumber,
-        significance: data.significance,
-        rarity: data.rarity,
-        condition: data.condition,
-        estimatedValue: data.estimatedValue,
-        facts: data.facts,
+        subTitle: data.cardNumber ? `#${data.cardNumber}` : (data.year || ''),
+        year: data.year || '',
+        brand: data.brand || '',
+        cardNumber: data.cardNumber || '',
+        significance: data.significance || 'Identified via AI Search',
+        rarity: data.rarity || 'Unknown',
+        condition: data.condition || 'Raw',
+        estimatedValue: data.estimatedValue || 0,
+        facts: data.facts || [],
         sources
       };
     }
-    throw new Error("Could not parse AI response.");
-  }, 5, 3000);
+    throw new Error("AI failed to return valid appraisal data.");
+  }, 3, 3000);
 };
 
 export const reEvaluateItem = async (item: VaultItem) => {
@@ -234,11 +224,15 @@ Focus on:
 Return your findings in a structured JSON format.`;
 
   return callWithRetry(async () => {
-    const query = `Perform an exhaustive market research and appraisal for this collectible:
+    const queryText = `Perform an exhaustive market research and appraisal for this collectible:
 Item: ${item.year} ${item.brand} ${item.title} ${item.subTitle}
 Category: ${item.category}
 
 MANDATORY: Use the Google Search tool to find current market data. Do not rely on internal knowledge for prices.
+Search for:
+1. Recent sold prices from eBay, Heritage, Goldin, and other major auction houses.
+2. Population reports (PSA/BGS/CGC) if applicable.
+3. Historical significance and known variations.
 
 Return a JSON object with:
 - estimatedValue (number): Current fair market value in USD.
@@ -249,7 +243,7 @@ Return a JSON object with:
 
     const result = await ai.models.generateContent({
       model: 'gemini-3.1-pro-preview',
-      contents: query,
+      contents: queryText,
       config: { 
         systemInstruction,
         tools: [{ googleSearch: {} }],
@@ -263,7 +257,7 @@ Return a JSON object with:
             reasoning: { type: Type.STRING },
             investmentOutlook: { type: Type.STRING }
           },
-          required: ["estimatedValue", "updatedFacts", "significance"]
+          required: ["estimatedValue", "updatedFacts"]
         }
       }
     });
