@@ -221,22 +221,34 @@ JSON Schema:
 export const reEvaluateItem = async (item: VaultItem) => {
   const ai = getAI();
   
-  const systemInstruction = `You are a professional collectible appraiser.
-Your task is to perform an in-depth market analysis for the item provided.
-Search for:
-1. Historical significance and origin.
-2. Known variations and their impact on value.
-3. Population reports and scarcity.
-4. Recent sold prices.
-5. Investment outlook.
+  const systemInstruction = `You are a world-class collectible appraiser and market analyst.
+Your task is to perform an exhaustive, in-depth market analysis for the item provided.
+You MUST use the Google Search tool to find the most recent and accurate data.
 
-Return ONLY a JSON object.`;
+Focus on:
+1. Recent sold prices from reputable auction houses and marketplaces (eBay, Heritage, Goldin, etc.).
+2. Population reports, scarcity, and known variations.
+3. Historical significance and provenance.
+4. Current market sentiment and investment outlook.
+
+Return your findings in a structured JSON format.`;
 
   return callWithRetry(async () => {
-    const query = `In-depth research for: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category})`;
+    const query = `Perform an exhaustive market research and appraisal for this collectible:
+Item: ${item.year} ${item.brand} ${item.title} ${item.subTitle}
+Category: ${item.category}
+
+MANDATORY: Use the Google Search tool to find current market data. Do not rely on internal knowledge for prices.
+
+Return a JSON object with:
+- estimatedValue (number): Current fair market value in USD.
+- updatedFacts (string[]): 3-5 detailed facts or market insights.
+- significance (string): The single most important historical or market detail.
+- reasoning (string): A brief justification of the value based on your search.
+- investmentOutlook (string): 1-2 sentences on the future value potential.`;
 
     const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-pro-preview',
       contents: query,
       config: { 
         systemInstruction,
@@ -264,11 +276,18 @@ Return ONLY a JSON object.`;
         uri: chunk.web.uri
       }));
 
-    const data = extractJSON(result.text || '{}');
-    if (data) {
+    let data;
+    try {
+      data = JSON.parse(result.text || '{}');
+    } catch (e) {
+      data = extractJSON(result.text || '');
+    }
+
+    if (data && (data.estimatedValue !== undefined || data.updatedFacts)) {
       return { ...data, sources };
     }
-    return null;
+    
+    throw new Error("AI failed to return valid research data.");
   }, 3, 3000);
 };
 
