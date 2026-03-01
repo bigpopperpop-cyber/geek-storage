@@ -52,7 +52,7 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
         
         // Step 1: Visual Identification
         setStatus('Identifying Card...');
-        const identified = await identifyItemFromImage(base64, category);
+        const identified = await identifyItemFromImage(base64, category, scanMode);
         
         if (!identified || !identified.name) {
           throw new Error("Could not identify the item. Please try a clearer photo.");

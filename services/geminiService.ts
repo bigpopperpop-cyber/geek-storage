@@ -4,8 +4,8 @@ import { VaultType, VaultItem } from "../types";
 
 const getAI = () => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("Gemini API Key is missing.");
+  if (!apiKey || apiKey === 'your_api_key_here' || apiKey === '') {
+    throw new Error("Gemini API Key is missing or empty. Please check your Vercel environment variables and redeploy your application.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -42,30 +42,33 @@ const extractJSON = (text: string) => {
 /**
  * Step 1: Fast Vision Identification (No Search)
  */
-export const identifyItemFromImage = async (base64Image: string, category: VaultType) => {
+export const identifyItemFromImage = async (base64Image: string, category: VaultType, mode: 'fast' | 'intelligence' = 'intelligence'): Promise<any> => {
   const ai = getAI();
-  const base64Data = base64Image.split(',')[1];
+  const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+  
+  // Choose model based on mode and availability
+  const modelName = mode === 'intelligence' ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
   
   const systemInstruction = category === 'sports' 
     ? `You are an expert Sports Trading Card Digitizer. Your goal is to analyze uploaded images of sports cards and extract precise metadata.
-
-MANDATORY RULES:
-1. ALWAYS detect the following: Player Name, Year, Brand, Set/Series, Card Number, Team, and Sport.
-2. LOOK for specific parallel indicators (e.g., Gold, Refractor, Printer's Proof).
-3. OUTPUT the results strictly in JSON format.
-4. If a value is not visible, return "Unknown" rather than guessing.
-5. Identify the "Key Attribute" (e.g., Rookie Card, Hall of Famer, Insert).`
+    
+    MANDATORY RULES:
+    1. ALWAYS detect the following: Player Name, Year, Brand, Set/Series, Card Number, Team, and Sport.
+    2. LOOK for specific parallel indicators (e.g., Gold, Refractor, Printer's Proof).
+    3. OUTPUT the results strictly in JSON format.
+    4. If a value is not visible, return "Unknown" rather than guessing.
+    5. Identify the "Key Attribute" (e.g., Rookie Card, Hall of Famer, Insert).`
     : `You are an expert appraiser and visual recognition specialist for ${category} collectibles.
-Your task is to identify items with 100% precision.
+    Your task is to identify items with 100% precision.
+    
+    MANDATORY PROCESS:
+    1. Analyze the visual features: Identify the player/character, set name, year, card number, and any special parallels or variations (e.g., "Refractor", "Holo", "First Edition").
+    2. Extract all visible text: Pay close attention to small print, copyright dates, and set logos.
+    3. If you are uncertain about any detail, list the most likely candidates and explain why based on the visual evidence.
+    
+    Return a JSON object with the identified details.`;
 
-MANDATORY PROCESS:
-1. Analyze the visual features: Identify the player/character, set name, year, card number, and any special parallels or variations (e.g., "Refractor", "Holo", "First Edition").
-2. Extract all visible text: Pay close attention to small print, copyright dates, and set logos.
-3. If you are uncertain about any detail, list the most likely candidates and explain why based on the visual evidence.
-
-Return a JSON object with the identified details.`;
-
-  return await callWithRetry(async () => {
+  return await callWithRetry(async (): Promise<any> => {
     const responseSchema = category === 'sports' ? {
       type: Type.OBJECT,
       properties: {
@@ -106,45 +109,56 @@ Return a JSON object with the identified details.`;
       required: ["name", "year", "brand", "cardNumber"]
     };
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
-      contents: {
-        parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
-          { text: category === 'sports' 
-            ? "Digitize this sports card. Extract all metadata and identify key attributes."
-            : `Step 1: Analyze the text on this ${category} item and its visual features.
+    try {
+      const result = await ai.models.generateContent({
+        model: modelName,
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
+            { text: category === 'sports' 
+              ? "Digitize this sports card. Extract all metadata and identify key attributes."
+              : `Step 1: Analyze the text on this ${category} item and its visual features.
 Step 2: Identify the specific Year, Brand, Player/Character Name, and Card Number.
 Step 3: Return the confirmed identity in JSON format.` }
-        ]
-      },
-      config: {
-        systemInstruction,
-        tools: [{ googleSearch: {} }],
-        responseMimeType: 'application/json',
-        responseSchema: responseSchema as any
-      }
-    });
+          ]
+        },
+        config: {
+          systemInstruction,
+          tools: mode === 'intelligence' ? [{ googleSearch: {} }] : [],
+          responseMimeType: 'application/json',
+          responseSchema: responseSchema as any
+        }
+      });
 
-    const rawData = extractJSON(result.text || '{}');
-    
-    // Normalize for the rest of the app
-    if (category === 'sports' && rawData.details) {
-      return {
-        name: rawData.details.player,
-        year: String(rawData.details.year),
-        brand: rawData.details.brand,
-        cardNumber: rawData.details.number,
-        team: rawData.details.team,
-        sport: rawData.details.sport,
-        set: rawData.details.set,
-        significance: rawData.details.key_attribute,
-        parallel: rawData.visual_check?.parallel_type,
-        conditionNotes: rawData.visual_check?.condition_notes
-      };
+      const rawData = extractJSON(result.text || '{}');
+      
+      // Normalize for the rest of the app
+      if (category === 'sports' && rawData.details) {
+        return {
+          name: rawData.details.player,
+          year: String(rawData.details.year),
+          brand: rawData.details.brand,
+          cardNumber: rawData.details.number,
+          team: rawData.details.team,
+          sport: rawData.details.sport,
+          set: rawData.details.set,
+          significance: rawData.details.key_attribute,
+          parallel: rawData.visual_check?.parallel_type,
+          conditionNotes: rawData.visual_check?.condition_notes
+        };
+      }
+      
+      return rawData;
+    } catch (error: any) {
+      console.error(`Identification failed with ${modelName}:`, error);
+      
+      // Fallback to Flash if Pro fails
+      if (mode === 'intelligence') {
+        console.log("Falling back to gemini-3-flash-preview...");
+        return await identifyItemFromImage(base64Image, category, 'fast');
+      }
+      throw error;
     }
-    
-    return rawData;
   }, 3, 2000);
 };
 
@@ -161,7 +175,7 @@ export const appraiseIdentifiedItem = async (identifiedData: any, category: Vaul
  */
 export const identifyAndAppraise = async (base64Image: string, category: VaultType, mode: 'fast' | 'intelligence' = 'intelligence') => {
   // We'll use the new two-step process here to fix the timeout issues
-  const identified = await identifyItemFromImage(base64Image, category);
+  const identified = await identifyItemFromImage(base64Image, category, mode);
   if (!identified || !identified.name) {
     throw new Error("Could not identify the item from the image. Please try a clearer photo.");
   }
