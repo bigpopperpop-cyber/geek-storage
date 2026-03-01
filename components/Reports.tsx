@@ -18,16 +18,26 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
   const categories = Object.keys(VAULT_CONFIG) as (keyof typeof VAULT_CONFIG)[];
 
   useEffect(() => {
-    if (items.length > 0 && items.length !== lastInsightCount) {
-      setLoadingInsights(true);
-      getCollectionInsights(items)
-        .then((newInsights) => {
-          setInsights(newInsights);
-          setLastInsightCount(items.length);
-        })
-        .finally(() => setLoadingInsights(false));
+    // Only load insights if we haven't loaded them for this collection size yet
+    if (items.length > 0 && items.length !== lastInsightCount && insights.length === 0) {
+      // We don't auto-load anymore to save API quota
     }
-  }, [items, lastInsightCount]);
+  }, [items, lastInsightCount, insights.length]);
+
+  const fetchInsights = async () => {
+    if (items.length === 0) return;
+    setLoadingInsights(true);
+    try {
+      const newInsights = await getCollectionInsights(items);
+      setInsights(newInsights);
+      setLastInsightCount(items.length);
+    } catch (err: any) {
+      console.error(err);
+      alert("Could not fetch insights: " + (err.message || "Unknown error"));
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,9 +104,18 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
             <Sparkles className="w-20 h-20" />
           </div>
           <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-indigo-200" />
-              <h3 className="text-xs font-black uppercase tracking-widest">AI Strategic Insights</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-200" />
+                <h3 className="text-xs font-black uppercase tracking-widest">AI Strategic Insights</h3>
+              </div>
+              <button 
+                onClick={fetchInsights}
+                disabled={loadingInsights}
+                className="text-[10px] font-black uppercase tracking-widest bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {insights.length > 0 ? 'Refresh' : 'Generate'}
+              </button>
             </div>
             {loadingInsights ? (
               <div className="flex items-center gap-3 py-4">

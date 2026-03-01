@@ -15,25 +15,39 @@ const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 /**
  * Helper to handle 429 errors with automatic retries
  */
-async function callWithRetry(fn: () => Promise<any>, retries = 5, backoff = 2000): Promise<any> {
+async function callWithRetry(fn: () => Promise<any>, retries = 3, backoff = 5000): Promise<any> {
   try {
     return await fn();
   } catch (error: any) {
-    const isRateLimit = error.message?.includes('429') || 
-                        error.message?.includes('RESOURCE_EXHAUSTED') ||
-                        error.message?.includes('rate limit');
+    const errorMsg = error.message || String(error);
+    const isRateLimit = errorMsg.includes('429') || 
+                        errorMsg.includes('RESOURCE_EXHAUSTED') ||
+                        errorMsg.toLowerCase().includes('rate limit');
     
+    const isInvalidKey = errorMsg.includes('API_KEY_INVALID') || 
+                         errorMsg.includes('invalid API key') ||
+                         errorMsg.includes('403');
+
+    if (isInvalidKey) {
+      throw new Error("Invalid Gemini API Key. Please ensure you have set GEMINI_API_KEY correctly in your environment variables and redeployed.");
+    }
+
     if (isRateLimit && retries > 0) {
-      // Add some jitter to avoid synchronized retries
-      const jitter = Math.random() * 1000;
+      // For Free Tier, we need much longer backoff
+      const jitter = Math.random() * 3000;
       const waitTime = backoff + jitter;
       
       console.log(`Rate limit hit. Retrying in ${Math.round(waitTime)}ms... (${retries} retries left)`);
       await delay(waitTime);
-      return callWithRetry(fn, retries - 1, backoff * 1.5);
+      return callWithRetry(fn, retries - 1, backoff * 2);
     }
+    
     if (isRateLimit) {
-      throw new Error("AI is currently busy (Rate Limit hit). You are likely using a Gemini Free Tier API key which has strict limits (2-15 requests per minute). Please wait 30-60 seconds before trying again, or upgrade to a paid tier at ai.google.dev.");
+      throw new Error(`AI is currently busy (Rate Limit hit). 
+      
+You are likely using a Gemini Free Tier key which has very strict limits (often 2-15 requests per minute). 
+
+Please wait at least 60 seconds before trying again. If this persists, your daily quota might be exhausted.`);
     }
     throw error;
   }
@@ -78,48 +92,48 @@ export const identifyItemFromImage = async (base64Image: string, category: Vault
     
     Return a JSON object with the identified details.`;
 
-  return await callWithRetry(async (): Promise<any> => {
-    const responseSchema = category === 'sports' ? {
-      type: Type.OBJECT,
-      properties: {
-        card_id: { type: Type.STRING, description: "Format: Year-Brand-Number" },
-        details: {
-          type: Type.OBJECT,
-          properties: {
-            player: { type: Type.STRING },
-            year: { type: Type.INTEGER },
-            brand: { type: Type.STRING },
-            set: { type: Type.STRING },
-            number: { type: Type.STRING },
-            team: { type: Type.STRING },
-            sport: { type: Type.STRING },
-            key_attribute: { type: Type.STRING }
+  try {
+    return await callWithRetry(async (): Promise<any> => {
+      const responseSchema = category === 'sports' ? {
+        type: Type.OBJECT,
+        properties: {
+          card_id: { type: Type.STRING, description: "Format: Year-Brand-Number" },
+          details: {
+            type: Type.OBJECT,
+            properties: {
+              player: { type: Type.STRING },
+              year: { type: Type.INTEGER },
+              brand: { type: Type.STRING },
+              set: { type: Type.STRING },
+              number: { type: Type.STRING },
+              team: { type: Type.STRING },
+              sport: { type: Type.STRING },
+              key_attribute: { type: Type.STRING }
+            },
+            required: ["player", "year", "brand", "number", "team", "sport"]
           },
-          required: ["player", "year", "brand", "number", "team", "sport"]
+          visual_check: {
+            type: Type.OBJECT,
+            properties: {
+              condition_notes: { type: Type.STRING },
+              parallel_type: { type: Type.STRING }
+            },
+            required: ["condition_notes", "parallel_type"]
+          }
         },
-        visual_check: {
-          type: Type.OBJECT,
-          properties: {
-            condition_notes: { type: Type.STRING },
-            parallel_type: { type: Type.STRING }
-          },
-          required: ["condition_notes", "parallel_type"]
-        }
-      },
-      required: ["card_id", "details", "visual_check"]
-    } : {
-      type: Type.OBJECT,
-      properties: {
-        name: { type: Type.STRING },
-        year: { type: Type.STRING },
-        brand: { type: Type.STRING },
-        cardNumber: { type: Type.STRING },
-        uncertaintyReason: { type: Type.STRING, description: "Explain any uncertainty in identification" }
-      },
-      required: ["name", "year", "brand", "cardNumber"]
-    };
+        required: ["card_id", "details", "visual_check"]
+      } : {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          year: { type: Type.STRING },
+          brand: { type: Type.STRING },
+          cardNumber: { type: Type.STRING },
+          uncertaintyReason: { type: Type.STRING, description: "Explain any uncertainty in identification" }
+        },
+        required: ["name", "year", "brand", "cardNumber"]
+      };
 
-    try {
       const result = await ai.models.generateContent({
         model: modelName,
         contents: {
@@ -127,14 +141,11 @@ export const identifyItemFromImage = async (base64Image: string, category: Vault
             { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
             { text: category === 'sports' 
               ? "Digitize this sports card. Extract all metadata and identify key attributes."
-              : `Step 1: Analyze the text on this ${category} item and its visual features.
-Step 2: Identify the specific Year, Brand, Player/Character Name, and Card Number.
-Step 3: Return the confirmed identity in JSON format.` }
+              : `Identify this ${category} item. Extract the Year, Brand, Player/Character Name, and Card Number.` }
           ]
         },
         config: {
           systemInstruction,
-          tools: mode === 'intelligence' ? [{ googleSearch: {} }] : [],
           responseMimeType: 'application/json',
           responseSchema: responseSchema as any
         }
@@ -159,24 +170,25 @@ Step 3: Return the confirmed identity in JSON format.` }
       }
       
       return rawData;
-    } catch (error: any) {
-      const isRateLimit = error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED');
-      
-      // If Pro hits rate limit, immediately try Flash instead of retrying Pro multiple times
-      if (mode === 'intelligence' && isRateLimit) {
-        console.warn("Gemini Pro rate limited. Falling back to Gemini Flash immediately...");
-        return await identifyItemFromImage(base64Image, category, 'fast');
-      }
-      
-      console.error(`Identification failed with ${modelName}:`, error);
-      
-      // Fallback to Flash if Pro fails for other reasons
-      if (mode === 'intelligence') {
-        return await identifyItemFromImage(base64Image, category, 'fast');
-      }
-      throw error;
+    }, 2, 4000); // Fewer retries, longer backoff
+  } catch (error: any) {
+    const errorMsg = error.message || String(error);
+    const isRateLimit = errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
+    
+    // If Pro hits rate limit, immediately try Flash instead of retrying Pro multiple times
+    if (mode === 'intelligence' && isRateLimit) {
+      console.warn("Gemini Pro rate limited. Falling back to Gemini Flash immediately...");
+      return await identifyItemFromImage(base64Image, category, 'fast');
     }
-  }, 3, 1500);
+    
+    console.error(`Identification failed with ${modelName}:`, error);
+    
+    // Fallback to Flash if Pro fails for other reasons
+    if (mode === 'intelligence') {
+      return await identifyItemFromImage(base64Image, category, 'fast');
+    }
+    throw error;
+  }
 };
 
 /**
