@@ -15,15 +15,25 @@ const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 /**
  * Helper to handle 429 errors with automatic retries
  */
-async function callWithRetry(fn: () => Promise<any>, retries = 3, backoff = 2000): Promise<any> {
+async function callWithRetry(fn: () => Promise<any>, retries = 5, backoff = 2000): Promise<any> {
   try {
     return await fn();
   } catch (error: any) {
-    const isRateLimit = error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED');
+    const isRateLimit = error.message?.includes('429') || 
+                        error.message?.includes('RESOURCE_EXHAUSTED') ||
+                        error.message?.includes('rate limit');
+    
     if (isRateLimit && retries > 0) {
-      console.log(`Rate limit hit. Retrying in ${backoff}ms... (${retries} retries left)`);
-      await delay(backoff);
-      return callWithRetry(fn, retries - 1, backoff * 2);
+      // Add some jitter to avoid synchronized retries
+      const jitter = Math.random() * 1000;
+      const waitTime = backoff + jitter;
+      
+      console.log(`Rate limit hit. Retrying in ${Math.round(waitTime)}ms... (${retries} retries left)`);
+      await delay(waitTime);
+      return callWithRetry(fn, retries - 1, backoff * 1.5);
+    }
+    if (isRateLimit) {
+      throw new Error("AI is currently busy (Rate Limit hit). You are likely using a Gemini Free Tier API key which has strict limits (2-15 requests per minute). Please wait 30-60 seconds before trying again, or upgrade to a paid tier at ai.google.dev.");
     }
     throw error;
   }
@@ -150,16 +160,23 @@ Step 3: Return the confirmed identity in JSON format.` }
       
       return rawData;
     } catch (error: any) {
+      const isRateLimit = error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED');
+      
+      // If Pro hits rate limit, immediately try Flash instead of retrying Pro multiple times
+      if (mode === 'intelligence' && isRateLimit) {
+        console.warn("Gemini Pro rate limited. Falling back to Gemini Flash immediately...");
+        return await identifyItemFromImage(base64Image, category, 'fast');
+      }
+      
       console.error(`Identification failed with ${modelName}:`, error);
       
-      // Fallback to Flash if Pro fails
+      // Fallback to Flash if Pro fails for other reasons
       if (mode === 'intelligence') {
-        console.log("Falling back to gemini-3-flash-preview...");
         return await identifyItemFromImage(base64Image, category, 'fast');
       }
       throw error;
     }
-  }, 3, 2000);
+  }, 3, 1500);
 };
 
 /**
@@ -200,24 +217,25 @@ export const identifyAndAppraise = async (base64Image: string, category: VaultTy
   }
 };
 
-export const searchAndAppraiseByText = async (query: string, category: VaultType) => {
+export const searchAndAppraiseByText = async (query: string, category: VaultType, useFlash: boolean = false, useSearch: boolean = true): Promise<any> => {
   const ai = getAI();
+  const model = useFlash ? 'gemini-3-flash-preview' : 'gemini-3.1-pro-preview';
 
   const systemInstruction = `You are an expert appraiser for ${category} collectibles.
-When asked to identify or appraise an item, you MUST first perform a search to confirm the set, year, and player/character.
+${useSearch ? 'When asked to identify or appraise an item, you MUST first perform a search to confirm the set, year, and player/character.' : 'Identify and appraise this item based on your internal knowledge.'}
 Do not rely solely on your internal training data.
 
 MANDATORY PROCESS:
-1. Search for the specific details provided (Year, Brand, Name, ID) on reliable collector databases and marketplaces.
-2. Cross-reference search results to provide a confirmed identity and an estimated value range based on "Sold" listings.
+${useSearch ? '1. Search for the specific details provided (Year, Brand, Name, ID) on reliable collector databases and marketplaces.\n2. Cross-reference search results to provide a confirmed identity and an estimated value range based on "Sold" listings.' : '1. Use your internal knowledge to provide a confirmed identity and an estimated value range.'}
 3. If you cannot find a 100% match, list the most likely candidates and explain why you are uncertain.
 
 Return ONLY a valid JSON object.`;
 
-  return await callWithRetry(async () => {
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
-      contents: `Step 1: Perform a deep search for this ${category} item: "${query}".
+  return await callWithRetry(async (): Promise<any> => {
+    try {
+      const result = await ai.models.generateContent({
+        model: model,
+        contents: `Step 1: ${useSearch ? 'Perform a deep search' : 'Analyze'} for this ${category} item: "${query}".
 Step 2: Find recent sold prices and historical significance.
 Step 3: Cross-reference data to provide a confirmed appraisal.
 Return the result in JSON format:
@@ -233,69 +251,85 @@ Return the result in JSON format:
   "facts": ["Fact 1", "Fact 2"],
   "uncertaintyReason": "Optional explanation of any uncertainty"
 }`,
-      config: {
-        systemInstruction,
-        tools: [{ googleSearch: {} }],
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            year: { type: Type.STRING },
-            brand: { type: Type.STRING },
-            cardNumber: { type: Type.STRING },
-            significance: { type: Type.STRING },
-            rarity: { type: Type.STRING },
-            condition: { type: Type.STRING },
-            estimatedValue: { type: Type.NUMBER },
-            facts: { type: Type.ARRAY, items: { type: Type.STRING } },
-            uncertaintyReason: { type: Type.STRING }
-          },
-          required: ["name", "estimatedValue", "facts"]
+        config: {
+          systemInstruction,
+          tools: useSearch ? [{ googleSearch: {} }] : [],
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              year: { type: Type.STRING },
+              brand: { type: Type.STRING },
+              cardNumber: { type: Type.STRING },
+              significance: { type: Type.STRING },
+              rarity: { type: Type.STRING },
+              condition: { type: Type.STRING },
+              estimatedValue: { type: Type.NUMBER },
+              facts: { type: Type.ARRAY, items: { type: Type.STRING } },
+              uncertaintyReason: { type: Type.STRING }
+            },
+            required: ["name", "estimatedValue", "facts"]
+          }
+        }
+      });
+
+      let data;
+      try {
+        data = JSON.parse(result.text || '{}');
+      } catch (e) {
+        data = extractJSON(result.text || '');
+      }
+      
+      const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const sources = groundingChunks
+        .filter((chunk: any) => chunk.web)
+        .map((chunk: any) => ({
+          title: chunk.web.title || "Market Source",
+          uri: chunk.web.uri
+        }));
+
+      if (data && data.name) {
+        return {
+          title: data.name,
+          subTitle: data.cardNumber ? `#${data.cardNumber}` : (data.year || ''),
+          year: data.year || '',
+          brand: data.brand || '',
+          cardNumber: data.cardNumber || '',
+          significance: data.significance || 'Identified via AI Search',
+          rarity: data.rarity || 'Unknown',
+          condition: data.condition || 'Raw',
+          estimatedValue: data.estimatedValue || 0,
+          facts: data.facts || [],
+          sources
+        };
+      }
+      throw new Error("AI failed to return valid appraisal data.");
+    } catch (error: any) {
+      const isRateLimit = error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED');
+      
+      if (isRateLimit) {
+        if (!useFlash) {
+          console.warn("Gemini Pro search rate limited. Falling back to Gemini Flash search...");
+          return await searchAndAppraiseByText(query, category, true, useSearch);
+        }
+        if (useSearch) {
+          console.warn("Gemini Search rate limited. Falling back to internal knowledge...");
+          return await searchAndAppraiseByText(query, category, useFlash, false);
         }
       }
-    });
-
-    let data;
-    try {
-      data = JSON.parse(result.text || '{}');
-    } catch (e) {
-      data = extractJSON(result.text || '');
+      throw error;
     }
-    
-    const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources = groundingChunks
-      .filter((chunk: any) => chunk.web)
-      .map((chunk: any) => ({
-        title: chunk.web.title || "Market Source",
-        uri: chunk.web.uri
-      }));
-
-    if (data && data.name) {
-      return {
-        title: data.name,
-        subTitle: data.cardNumber ? `#${data.cardNumber}` : (data.year || ''),
-        year: data.year || '',
-        brand: data.brand || '',
-        cardNumber: data.cardNumber || '',
-        significance: data.significance || 'Identified via AI Search',
-        rarity: data.rarity || 'Unknown',
-        condition: data.condition || 'Raw',
-        estimatedValue: data.estimatedValue || 0,
-        facts: data.facts || [],
-        sources
-      };
-    }
-    throw new Error("AI failed to return valid appraisal data.");
-  }, 3, 3000);
+  }, 3, 2000);
 };
 
-export const reEvaluateItem = async (item: VaultItem) => {
+export const reEvaluateItem = async (item: VaultItem, useFlash: boolean = false, useSearch: boolean = true): Promise<any> => {
   const ai = getAI();
+  const model = useFlash ? 'gemini-3-flash-preview' : 'gemini-3.1-pro-preview';
   
   const systemInstruction = `You are a world-class collectible appraiser and market analyst.
 Your task is to perform an exhaustive, in-depth market analysis for the item provided.
-You MUST use the Google Search tool to find the most recent and accurate data.
+${useSearch ? 'You MUST use the Google Search tool to find the most recent and accurate data.' : 'Use your internal knowledge to provide the most accurate data possible.'}
 
 Focus on:
 1. Recent sold prices from reputable auction houses and marketplaces (eBay, Heritage, Goldin, etc.).
@@ -305,9 +339,10 @@ Focus on:
 
 Return your findings in a structured JSON format.`;
 
-  return callWithRetry(async () => {
-    const queryText = `Step 1: Analyze the current item details: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}).
-Step 2: Use Google Search to find recent "Sold" listings on eBay, Heritage, and other major auction houses.
+  return callWithRetry(async (): Promise<any> => {
+    try {
+      const queryText = `Step 1: Analyze the current item details: ${item.year} ${item.brand} ${item.title} ${item.subTitle} (${item.category}).
+Step 2: ${useSearch ? 'Use Google Search to find recent "Sold" listings on eBay, Heritage, and other major auction houses.' : 'Use your internal knowledge to estimate value.'}
 Step 3: Search for population reports and known variations that might affect value.
 Step 4: Cross-reference all findings to provide a confirmed fair market value and investment outlook.
 
@@ -318,47 +353,61 @@ Return a JSON object with:
 - reasoning (string): A brief justification of the value based on your search.
 - investmentOutlook (string): 1-2 sentences on the future value potential.`;
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
-      contents: queryText,
-      config: { 
-        systemInstruction,
-        tools: [{ googleSearch: {} }],
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            estimatedValue: { type: Type.NUMBER },
-            updatedFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
-            significance: { type: Type.STRING },
-            reasoning: { type: Type.STRING },
-            investmentOutlook: { type: Type.STRING }
-          },
-          required: ["estimatedValue", "updatedFacts"]
+      const result = await ai.models.generateContent({
+        model: model,
+        contents: queryText,
+        config: { 
+          systemInstruction,
+          tools: useSearch ? [{ googleSearch: {} }] : [],
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              estimatedValue: { type: Type.NUMBER },
+              updatedFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
+              significance: { type: Type.STRING },
+              reasoning: { type: Type.STRING },
+              investmentOutlook: { type: Type.STRING }
+            },
+            required: ["estimatedValue", "updatedFacts"]
+          }
+        }
+      });
+
+      const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+      const sources = groundingChunks
+        .filter((chunk: any) => chunk.web)
+        .map((chunk: any) => ({
+          title: chunk.web.title || "Market Source",
+          uri: chunk.web.uri
+        }));
+
+      let data;
+      try {
+        data = JSON.parse(result.text || '{}');
+      } catch (e) {
+        data = extractJSON(result.text || '');
+      }
+
+      if (data && (data.estimatedValue !== undefined || data.updatedFacts)) {
+        return { ...data, sources };
+      }
+      
+      throw new Error("AI failed to return valid research data.");
+    } catch (error: any) {
+      const isRateLimit = error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED');
+      if (isRateLimit) {
+        if (!useFlash) {
+          console.warn("Gemini Pro re-evaluation rate limited. Falling back to Gemini Flash...");
+          return await reEvaluateItem(item, true, useSearch);
+        }
+        if (useSearch) {
+          console.warn("Gemini Search rate limited. Falling back to internal knowledge...");
+          return await reEvaluateItem(item, useFlash, false);
         }
       }
-    });
-
-    const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources = groundingChunks
-      .filter((chunk: any) => chunk.web)
-      .map((chunk: any) => ({
-        title: chunk.web.title || "Market Source",
-        uri: chunk.web.uri
-      }));
-
-    let data;
-    try {
-      data = JSON.parse(result.text || '{}');
-    } catch (e) {
-      data = extractJSON(result.text || '');
+      throw error;
     }
-
-    if (data && (data.estimatedValue !== undefined || data.updatedFacts)) {
-      return { ...data, sources };
-    }
-    
-    throw new Error("AI failed to return valid research data.");
   }, 3, 3000);
 };
 

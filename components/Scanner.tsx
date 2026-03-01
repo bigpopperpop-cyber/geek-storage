@@ -34,12 +34,16 @@ const resizeImage = (base64Str: string): Promise<string> => {
 const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [scanMode, setScanMode] = useState<'fast' | 'intelligence'>('fast');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastFileRef = useRef<File | null>(null);
 
-  const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleCapture = async (e: React.ChangeEvent<HTMLInputElement> | File) => {
+    const file = e instanceof File ? e : e.target.files?.[0];
     if (!file) return;
+    lastFileRef.current = file;
+    setError(null);
 
     const reader = new FileReader();
     reader.onload = async () => {
@@ -96,13 +100,7 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
         }
       } catch (err: any) {
         console.error(err);
-        let msg = "Scan failed.";
-        if (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) {
-          msg = "AI is currently busy (Rate Limit hit). Please wait 30 seconds and try again.";
-        } else {
-          msg = err.message || "Unknown error.";
-        }
-        alert(msg);
+        setError(err.message || "Unknown error occurred.");
         setProcessing(false);
       }
     };
@@ -118,6 +116,18 @@ const Scanner: React.FC<ScannerProps> = ({ category, onCancel, onResult }) => {
               <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
               <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest animate-pulse">{status}</p>
               <p className="text-[8px] text-slate-400 mt-2">Retrying if busy...</p>
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-50/90 backdrop-blur-sm z-20 px-6 text-center">
+              <span className="text-4xl mb-3">⚠️</span>
+              <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-2">Error</p>
+              <p className="text-[9px] text-slate-600 leading-tight mb-4">{error}</p>
+              <button 
+                onClick={() => lastFileRef.current && handleCapture(lastFileRef.current)}
+                className="bg-red-600 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl shadow-lg active:scale-95 transition-all"
+              >
+                Retry Scan
+              </button>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 opacity-10">
