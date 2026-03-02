@@ -35,7 +35,17 @@ const App: React.FC = () => {
     sortBy: 'newest'
   });
 
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
+
   useEffect(() => {
+    const checkKey = () => {
+      const key = process.env.API_KEY || process.env.GEMINI_API_KEY;
+      if (!key || key === 'your_api_key_here' || key === '') {
+        setApiKeyMissing(true);
+      }
+    };
+    checkKey();
+
     getAllItems().then(data => {
       setItems(data);
       setLoading(false);
@@ -148,6 +158,31 @@ const App: React.FC = () => {
         itemCount={filteredItems.length}
         onBack={() => setView('vault')} 
       />
+
+      {apiKeyMissing && (
+        <div className="bg-amber-50 border-b border-amber-100 p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+              ⚠️
+            </div>
+            <div>
+              <p className="text-xs font-black text-amber-900 uppercase tracking-tight">API Key Required</p>
+              <p className="text-[10px] text-amber-700 font-bold">AI features will not work until a key is selected.</p>
+            </div>
+          </div>
+          <button 
+            onClick={async () => {
+              if (window.aistudio) {
+                await window.aistudio.openSelectKey();
+                setApiKeyMissing(false);
+              }
+            }}
+            className="px-3 py-1.5 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm active:scale-95 transition-all"
+          >
+            Select Key
+          </button>
+        </div>
+      )}
 
       <main className="flex-grow overflow-y-auto px-5 pb-32 pt-6">
         {view === 'vault' && (

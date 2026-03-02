@@ -3,9 +3,12 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { VaultType, VaultItem } from "../types";
 
 const getAI = () => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  // Try API_KEY first as it's the one from the user selection dialog
+  // Fallback to GEMINI_API_KEY which is the system default
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  
   if (!apiKey || apiKey === 'your_api_key_here' || apiKey === '') {
-    throw new Error("Gemini API Key is missing or empty. Please check your Vercel environment variables and redeploy your application.");
+    throw new Error("Gemini API Key is missing. Please set GEMINI_API_KEY in your environment or use the 'Fix API Key' button.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -29,7 +32,7 @@ async function callWithRetry(fn: () => Promise<any>, retries = 3, backoff = 5000
                          errorMsg.includes('403');
 
     if (isInvalidKey) {
-      throw new Error("Invalid Gemini API Key. Please ensure you have set GEMINI_API_KEY correctly in your environment variables and redeployed.");
+      throw new Error("The Gemini API Key appears to be invalid or unauthorized (403). If you are in the AI Studio preview, try clicking the 'Fix API Key' button to select a valid key.");
     }
 
     if (isRateLimit && retries > 0) {
@@ -71,7 +74,8 @@ export const identifyItemFromImage = async (base64Image: string, category: Vault
   const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
   
   // Choose model based on mode and availability
-  const modelName = mode === 'intelligence' ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
+  // Defaulting to flash-preview for better reliability on Free Tier
+  const modelName = mode === 'intelligence' ? 'gemini-3-flash-preview' : 'gemini-3-flash-preview';
   
   const systemInstruction = category === 'sports' 
     ? `You are an expert Sports Trading Card Digitizer. Your goal is to analyze uploaded images of sports cards and extract precise metadata.
@@ -229,9 +233,9 @@ export const identifyAndAppraise = async (base64Image: string, category: VaultTy
   }
 };
 
-export const searchAndAppraiseByText = async (query: string, category: VaultType, useFlash: boolean = false, useSearch: boolean = true): Promise<any> => {
+export const searchAndAppraiseByText = async (query: string, category: VaultType, useFlash: boolean = true, useSearch: boolean = true): Promise<any> => {
   const ai = getAI();
-  const model = useFlash ? 'gemini-3-flash-preview' : 'gemini-3.1-pro-preview';
+  const model = 'gemini-3-flash-preview';
 
   const systemInstruction = `You are an expert appraiser for ${category} collectibles.
 ${useSearch ? 'When asked to identify or appraise an item, you MUST first perform a search to confirm the set, year, and player/character.' : 'Identify and appraise this item based on your internal knowledge.'}
@@ -335,9 +339,9 @@ Return the result in JSON format:
   }, 3, 2000);
 };
 
-export const reEvaluateItem = async (item: VaultItem, useFlash: boolean = false, useSearch: boolean = true): Promise<any> => {
+export const reEvaluateItem = async (item: VaultItem, useFlash: boolean = true, useSearch: boolean = true): Promise<any> => {
   const ai = getAI();
-  const model = useFlash ? 'gemini-3-flash-preview' : 'gemini-3.1-pro-preview';
+  const model = 'gemini-3-flash-preview';
   
   const systemInstruction = `You are a world-class collectible appraiser and market analyst.
 Your task is to perform an exhaustive, in-depth market analysis for the item provided.

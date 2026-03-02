@@ -13,6 +13,17 @@ interface HeaderProps {
 const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, itemCount, onBack }) => {
   const config = VAULT_CONFIG[activeVault];
 
+  const handleFixKey = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
+      // The platform will inject the new key into process.env.API_KEY
+      // We might need to refresh or just let the next call use it
+      alert("API Key selection opened. After selecting a key, please try your action again.");
+    } else {
+      alert("API Key selection is only available in the AI Studio environment.");
+    }
+  };
+
   return (
     <header className="bg-white px-6 pt-10 pb-6 border-b border-slate-100 flex flex-col gap-4">
       <div className="flex justify-between items-center">
@@ -24,9 +35,17 @@ const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, ite
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               Total Asset Value: <span className="text-slate-900">${totalValue.toLocaleString()}</span>
             </p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Items in View: <span className="text-slate-900">{itemCount}</span>
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Items in View: <span className="text-slate-900">{itemCount}</span>
+              </p>
+              <button 
+                onClick={handleFixKey}
+                className="text-[9px] font-black text-indigo-600 uppercase tracking-widest hover:underline"
+              >
+                Fix API Key
+              </button>
+            </div>
           </div>
         </div>
         
