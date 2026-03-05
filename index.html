@@ -12,6 +12,18 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        
+        @media print {
+            body { background: white !important; color: black !important; }
+            #root > div > header, 
+            #root > div > nav, 
+            #root > div > main > div > *:not(.print\:block) { 
+                display: none !important; 
+            }
+            #root > div > main { padding: 0 !important; margin: 0 !important; overflow: visible !important; }
+            #root > div { max-width: none !important; shadow: none !important; }
+            .print\:block { display: block !important; }
+        }
     </style>
 <script type="importmap">
 {

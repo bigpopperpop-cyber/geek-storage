@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { VaultItem, VAULT_CONFIG } from '../types';
 import { getCollectionInsights } from '../services/geminiService';
 import { exportCollection, importCollection } from '../services/storageService';
-import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck } from 'lucide-react';
+import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck, Share2, Printer } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, Tooltip, 
@@ -72,8 +72,81 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
 
   const totalValue = items.reduce((a, b) => a + (b.estimatedValue || 0), 0);
   
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const summary = `My ${items.length} item collection is valued at $${totalValue.toLocaleString()}! Check out Vault AI.`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'My Vault AI Collection',
+          text: summary,
+          url: shareUrl
+        });
+      } catch (err) {
+        console.error('Share error:', err);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(`${summary}\n${shareUrl}`);
+        alert('Collection summary and link copied to clipboard!');
+      } catch (err) {
+        alert('Failed to copy share link.');
+      }
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="space-y-8 pb-24 animate-in fade-in duration-700">
+      {/* Print-only Table (Hidden in UI) */}
+      <div className="hidden print:block p-8 bg-white text-black font-sans">
+        <div className="flex justify-between items-end border-b-2 border-black pb-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-black uppercase tracking-tighter">Collection Inventory</h1>
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Generated on {new Date().toLocaleDateString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Portfolio Value</p>
+            <p className="text-2xl font-black">${totalValue.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-200">
+              <th className="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Item</th>
+              <th className="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Category</th>
+              <th className="py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id} className="border-b border-slate-100">
+                <td className="py-3">
+                  <p className="text-xs font-black text-slate-900">{item.title}</p>
+                  <p className="text-[10px] font-bold text-slate-500">{item.subTitle} ({item.year})</p>
+                </td>
+                <td className="py-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{VAULT_CONFIG[item.category].label}</span>
+                </td>
+                <td className="py-3 text-right">
+                  <p className="text-xs font-black text-slate-900">${(item.estimatedValue || 0).toLocaleString()}</p>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        
+        <div className="mt-12 pt-8 border-t border-slate-100 text-center">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vault AI - Digital Collectible Management</p>
+        </div>
+      </div>
+
       {/* Hero Stats */}
       <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden shadow-2xl shadow-slate-200">
         <div className="relative z-10">
@@ -225,6 +298,24 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Data Management</h3>
             </div>
             
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={handleShare}
+                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group"
+              >
+                <Share2 className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Share</span>
+              </button>
+              
+              <button 
+                onClick={handlePrint}
+                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group"
+              >
+                <Printer className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Print</span>
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <button 
                 onClick={exportCollection}
