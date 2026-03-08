@@ -125,20 +125,34 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-b border-slate-100">
-                <td className="py-3">
-                  <p className="text-xs font-black text-slate-900">{item.title}</p>
-                  <p className="text-[10px] font-bold text-slate-500">{item.subTitle} ({item.year})</p>
-                </td>
-                <td className="py-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{VAULT_CONFIG[item.category].label}</span>
-                </td>
-                <td className="py-3 text-right">
-                  <p className="text-xs font-black text-slate-900">${(item.estimatedValue || 0).toLocaleString()}</p>
-                </td>
-              </tr>
-            ))}
+            {(Object.keys(VAULT_CONFIG) as Array<keyof typeof VAULT_CONFIG>).map(catKey => {
+              const categoryItems = items.filter(i => i.category === catKey);
+              if (categoryItems.length === 0) return null;
+              
+              return (
+                <React.Fragment key={catKey}>
+                  <tr className="bg-slate-50">
+                    <td colSpan={3} className="py-2 px-4 text-[10px] font-black uppercase tracking-widest text-slate-900 border-b border-slate-200">
+                      {VAULT_CONFIG[catKey].label} ({categoryItems.length} items)
+                    </td>
+                  </tr>
+                  {categoryItems.map((item) => (
+                    <tr key={item.id} className="border-b border-slate-100">
+                      <td className="py-3 px-4">
+                        <p className="text-xs font-black text-slate-900">{item.title}</p>
+                        <p className="text-[10px] font-bold text-slate-500">{item.subTitle} ({item.year})</p>
+                      </td>
+                      <td className="py-3">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{VAULT_CONFIG[item.category].label}</span>
+                      </td>
+                      <td className="py-3 text-right pr-4">
+                        <p className="text-xs font-black text-slate-900">${(item.trueValue || item.estimatedValue || 0).toLocaleString()}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
         
