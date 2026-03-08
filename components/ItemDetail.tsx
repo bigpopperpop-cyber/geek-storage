@@ -13,6 +13,11 @@ interface DetailProps {
 
 const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack }) => {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isEditingTrueValue, setIsEditingTrueValue] = useState(false);
+  const [isEditingCondition, setIsEditingCondition] = useState(false);
+  const [tempTrueValue, setTempTrueValue] = useState(item.trueValue?.toString() || '');
+  const [tempCondition, setTempCondition] = useState(item.manualCondition || item.condition);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const theme = VAULT_CONFIG[item.category];
 
@@ -38,6 +43,8 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
         onUpdate({
           ...item,
           estimatedValue: result.estimatedValue ?? item.estimatedValue,
+          lowValue: result.lowValue ?? item.lowValue,
+          highValue: result.highValue ?? item.highValue,
           facts: result.updatedFacts || item.facts,
           significance: result.significance || item.significance,
           lastValued: new Date().toISOString(),
@@ -54,6 +61,23 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const saveTrueValue = () => {
+    const val = parseFloat(tempTrueValue);
+    onUpdate({
+      ...item,
+      trueValue: isNaN(val) ? undefined : val
+    });
+    setIsEditingTrueValue(false);
+  };
+
+  const saveCondition = () => {
+    onUpdate({
+      ...item,
+      manualCondition: tempCondition
+    });
+    setIsEditingCondition(false);
   };
 
   return (
@@ -111,9 +135,12 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
                   {item.rarity}
                 </span>
               )}
-              <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-emerald-100">
-                {item.condition}
-              </span>
+              <button 
+                onClick={() => setIsEditingCondition(true)}
+                className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-colors"
+              >
+                {item.manualCondition || item.condition}
+              </button>
             </div>
             <h2 className="text-3xl font-black text-slate-900 leading-tight">{item.title}</h2>
           </div>
@@ -122,7 +149,71 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
             <p className="text-3xl font-black text-slate-900 tracking-tighter">
               ${(item.estimatedValue || 0).toLocaleString()}
             </p>
+            {(item.lowValue || item.highValue) && (
+              <p className="text-[10px] font-bold text-slate-400 mt-1">
+                Range: ${item.lowValue?.toLocaleString()} - ${item.highValue?.toLocaleString()}
+              </p>
+            )}
           </div>
+        </div>
+
+        {/* Condition Editor Modal-ish */}
+        {isEditingCondition && (
+          <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-200">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Assess Condition</p>
+            <div className="flex gap-2">
+              <input 
+                type="text"
+                value={tempCondition}
+                onChange={(e) => setTempCondition(e.target.value)}
+                className="flex-grow bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="e.g. Near Mint 7"
+                autoFocus
+              />
+              <button 
+                onClick={saveCondition}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* True Value Section */}
+        <div className="mt-8 flex items-center justify-between p-6 bg-slate-900 rounded-[2rem] text-white shadow-xl">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Your True Value</p>
+            {isEditingTrueValue ? (
+              <div className="flex gap-2">
+                <input 
+                  type="number"
+                  value={tempTrueValue}
+                  onChange={(e) => setTempTrueValue(e.target.value)}
+                  className="w-24 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1 text-xl font-black focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  autoFocus
+                />
+                <button 
+                  onClick={saveTrueValue}
+                  className="bg-emerald-500 text-white px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest"
+                >
+                  Set
+                </button>
+              </div>
+            ) : (
+              <p className="text-3xl font-black tracking-tighter">
+                ${(item.trueValue || item.estimatedValue || 0).toLocaleString()}
+              </p>
+            )}
+          </div>
+          <button 
+            onClick={() => setIsEditingTrueValue(!isEditingTrueValue)}
+            className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
         </div>
 
         {item.significance && (

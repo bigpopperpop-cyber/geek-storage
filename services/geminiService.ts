@@ -264,6 +264,8 @@ Return the result in JSON format:
   "rarity": "Common/Rare/etc",
   "condition": "Typical condition",
   "estimatedValue": 0.00,
+  "lowValue": 0.00,
+  "highValue": 0.00,
   "facts": ["Fact 1", "Fact 2"],
   "uncertaintyReason": "Optional explanation of any uncertainty"
 }`,
@@ -282,6 +284,8 @@ Return the result in JSON format:
               rarity: { type: Type.STRING },
               condition: { type: Type.STRING },
               estimatedValue: { type: Type.NUMBER },
+              lowValue: { type: Type.NUMBER },
+              highValue: { type: Type.NUMBER },
               facts: { type: Type.ARRAY, items: { type: Type.STRING } },
               uncertaintyReason: { type: Type.STRING }
             },
@@ -316,6 +320,8 @@ Return the result in JSON format:
           rarity: data.rarity || 'Unknown',
           condition: data.condition || 'Raw',
           estimatedValue: data.estimatedValue || 0,
+          lowValue: data.lowValue || data.estimatedValue * 0.8 || 0,
+          highValue: data.highValue || data.estimatedValue * 1.2 || 0,
           facts: data.facts || [],
           sources
         };
@@ -364,6 +370,8 @@ Step 4: Cross-reference all findings to provide a confirmed fair market value an
 
 Return a JSON object with:
 - estimatedValue (number): Current fair market value in USD.
+- lowValue (number): Conservative low-end estimate.
+- highValue (number): Aggressive high-end estimate.
 - updatedFacts (string[]): 3-5 detailed facts or market insights.
 - significance (string): The single most important historical or market detail.
 - reasoning (string): A brief justification of the value based on your search.
@@ -380,6 +388,8 @@ Return a JSON object with:
             type: Type.OBJECT,
             properties: {
               estimatedValue: { type: Type.NUMBER },
+              lowValue: { type: Type.NUMBER },
+              highValue: { type: Type.NUMBER },
               updatedFacts: { type: Type.ARRAY, items: { type: Type.STRING } },
               significance: { type: Type.STRING },
               reasoning: { type: Type.STRING },

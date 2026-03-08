@@ -17,6 +17,10 @@ export interface VaultItem {
   rarity?: string;
   condition: string;
   estimatedValue: number;
+  lowValue?: number;      // High/Low range from research
+  highValue?: number;
+  trueValue?: number;     // User-defined manual value
+  manualCondition?: string; // User-defined manual condition
   facts: string[];
   dateAdded: string;
   lastValued: string;
