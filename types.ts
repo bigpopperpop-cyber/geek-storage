@@ -5,6 +5,22 @@ export type AppView = 'vault' | 'scan' | 'item' | 'reports' | 'search_add' | 'ma
 // Fix: Added ComicCondition type used in ComicForm.tsx
 export type ComicCondition = 'Gem Mint' | 'Mint' | 'Near Mint' | 'Very Fine' | 'Fine' | 'Very Good' | 'Good' | 'Fair' | 'Poor';
 
+export const COLLECTIBLE_CONDITIONS = [
+  'Gem Mint (10)',
+  'Mint (9)',
+  'Near Mint-Mint (8)',
+  'Near Mint (7)',
+  'Excellent-Mint (6)',
+  'Excellent (5)',
+  'Very Good-Excellent (4)',
+  'Very Good (3)',
+  'Good (2)',
+  'Fair (1.5)',
+  'Poor (1)',
+  'Authentic',
+  'Raw'
+];
+
 export interface VaultItem {
   id: string;
   category: VaultType;

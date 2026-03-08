@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { VaultItem, VAULT_CONFIG } from '../types';
+import { VaultItem, VAULT_CONFIG, COLLECTIBLE_CONDITIONS } from '../types';
 import { reEvaluateItem } from '../services/geminiService';
 import { Camera } from 'lucide-react';
 
@@ -162,14 +162,19 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
           <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-200 animate-in fade-in slide-in-from-top-2 duration-200">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Assess Condition</p>
             <div className="flex gap-2">
-              <input 
-                type="text"
+              <select 
                 value={tempCondition}
                 onChange={(e) => setTempCondition(e.target.value)}
-                className="flex-grow bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="e.g. Near Mint 7"
+                className="flex-grow bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none"
                 autoFocus
-              />
+              >
+                {COLLECTIBLE_CONDITIONS.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                {!COLLECTIBLE_CONDITIONS.includes(tempCondition) && tempCondition && (
+                  <option value={tempCondition}>{tempCondition}</option>
+                )}
+              </select>
               <button 
                 onClick={saveCondition}
                 className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest"

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { VaultType, VaultItem } from '../types';
+import { VaultType, VaultItem, COLLECTIBLE_CONDITIONS } from '../types';
 import { ArrowLeft, Save, Camera, X } from 'lucide-react';
 
 interface ManualAddProps {
@@ -158,13 +158,16 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Condition</label>
-            <input
-              type="text"
+            <select
               value={formData.condition}
               onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-              placeholder="Mint 9"
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none"
-            />
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none appearance-none"
+            >
+              <option value="">Select Condition</option>
+              {COLLECTIBLE_CONDITIONS.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
         </div>
 
