@@ -73,34 +73,62 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
   const totalValue = items.reduce((a, b) => a + (b.estimatedValue || 0), 0);
   
   const handleShare = async () => {
-    const shareUrl = window.location.href;
-    const summary = `My ${items.length} item collection is valued at $${totalValue.toLocaleString()}! Check out Vault AI.`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'My Vault AI Collection',
-          text: summary,
-          url: shareUrl
-        });
-      } catch (err) {
-        console.error('Share error:', err);
+    try {
+      const response = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+      });
+      
+      if (!response.ok) throw new Error('Failed to create share link');
+      
+      const { shareId } = await response.json();
+      const shareUrl = `${window.location.origin}?share=${shareId}`;
+      const summary = `My ${items.length} item collection is valued at $${totalValue.toLocaleString()}! Check out Vault AI.`;
+      
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'My Vault AI Collection',
+            text: summary,
+            url: shareUrl
+          });
+        } catch (err) {
+          console.error('Share error:', err);
+        }
+      } else {
+        // Fallback: Copy to clipboard
+        try {
+          await navigator.clipboard.writeText(`${summary}\n${shareUrl}`);
+          alert('Share link copied to clipboard!');
+        } catch (err) {
+          alert('Failed to copy share link.');
+        }
       }
-    } else {
-      // Fallback: Copy to clipboard
-      try {
-        await navigator.clipboard.writeText(`${summary}\n${shareUrl}`);
-        alert('Collection summary and link copied to clipboard!');
-      } catch (err) {
-        alert('Failed to copy share link.');
-      }
+    } catch (err) {
+      console.error("Share error:", err);
+      alert("Failed to create share link. Please try again.");
     }
   };
 
-  const handleSMS = () => {
-    const shareUrl = window.location.href;
-    const summary = `My ${items.length} item collection is valued at $${totalValue.toLocaleString()}! Check out Vault AI: ${shareUrl}`;
-    window.location.href = `sms:?body=${encodeURIComponent(summary)}`;
+  const handleSMS = async () => {
+    try {
+      const response = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items })
+      });
+      
+      if (!response.ok) throw new Error('Failed to create share link');
+      
+      const { shareId } = await response.json();
+      const shareUrl = `${window.location.origin}?share=${shareId}`;
+      const summary = `My ${items.length} item collection is valued at $${totalValue.toLocaleString()}! Check out Vault AI: ${shareUrl}`;
+      window.location.href = `sms:?body=${encodeURIComponent(summary)}`;
+    } catch (err) {
+      console.error("SMS error:", err);
+      alert("Failed to create share link. Please try again.");
+    }
   };
 
   const handlePrint = () => {
