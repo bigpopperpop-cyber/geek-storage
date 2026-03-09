@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { VaultItem, VAULT_CONFIG } from '../types';
 import { getCollectionInsights } from '../services/geminiService';
 import { exportCollection, importCollection } from '../services/storageService';
-import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck, Share2, Printer } from 'lucide-react';
+import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck, Share2, Printer, MessageSquare } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, Tooltip, 
@@ -95,6 +95,12 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
         alert('Failed to copy share link.');
       }
     }
+  };
+
+  const handleSMS = () => {
+    const shareUrl = window.location.href;
+    const summary = `My ${items.length} item collection is valued at $${totalValue.toLocaleString()}! Check out Vault AI: ${shareUrl}`;
+    window.location.href = `sms:?body=${encodeURIComponent(summary)}`;
   };
 
   const handlePrint = () => {
@@ -312,13 +318,21 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Data Management</h3>
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button 
                 onClick={handleShare}
                 className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group"
               >
                 <Share2 className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
                 <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Share</span>
+              </button>
+
+              <button 
+                onClick={handleSMS}
+                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group"
+              >
+                <MessageSquare className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Text</span>
               </button>
               
               <button 
