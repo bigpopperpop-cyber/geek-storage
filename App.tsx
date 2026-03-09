@@ -53,6 +53,7 @@ const App: React.FC = () => {
     const shareId = urlParams.get('share');
 
     if (shareId) {
+      console.log(`[App] Detected share ID: ${shareId}`);
       setLoading(true);
       fetch(`/api/share/${shareId}`)
         .then(res => {
@@ -60,14 +61,21 @@ const App: React.FC = () => {
           return res.json();
         })
         .then(data => {
-          setItems(data.items);
-          setIsSharedView(true);
-          setSharedCollectionName(`Shared Collection (${data.items.length} items)`);
+          console.log(`[App] Successfully loaded shared collection. Items: ${data.items?.length}`);
+          if (data.items && data.items.length > 0) {
+            setItems(data.items);
+            setIsSharedView(true);
+            setSharedCollectionName(`Shared Collection (${data.items.length} items)`);
+            setView('reports');
+          } else {
+            console.warn("[App] Shared collection is empty");
+            alert("This shared collection appears to be empty.");
+            loadLocalVault();
+          }
           setLoading(false);
-          setView('reports'); // Start in reports view for shared collections
         })
         .catch(err => {
-          console.error("Error loading shared collection:", err);
+          console.error("[App] Error loading shared collection:", err);
           alert("Could not load shared collection. Loading your local vault instead.");
           loadLocalVault();
         });

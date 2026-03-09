@@ -73,6 +73,11 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
   const totalValue = items.reduce((a, b) => a + (b.estimatedValue || 0), 0);
   
   const handleShare = async () => {
+    if (items.length === 0) {
+      alert("Your collection is empty. Add some items before sharing!");
+      return;
+    }
+
     try {
       const response = await fetch('/api/share', {
         method: 'POST',
@@ -112,6 +117,11 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
   };
 
   const handleSMS = async () => {
+    if (items.length === 0) {
+      alert("Your collection is empty. Add some items before sharing!");
+      return;
+    }
+
     try {
       const response = await fetch('/api/share', {
         method: 'POST',
