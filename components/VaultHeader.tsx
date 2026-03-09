@@ -8,10 +8,9 @@ interface HeaderProps {
   totalValue: number;
   itemCount: number;
   onBack: () => void;
-  sharedTitle?: string;
 }
 
-const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, itemCount, onBack, sharedTitle }) => {
+const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, itemCount, onBack }) => {
   const config = VAULT_CONFIG[activeVault];
 
   const handleFixKey = async () => {
@@ -30,7 +29,7 @@ const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, ite
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
-            VAULT <span className="opacity-20">/</span> {sharedTitle ? sharedTitle.toUpperCase() : config.label.toUpperCase()}
+            VAULT <span className="opacity-20">/</span> {config.label.toUpperCase()}
           </h1>
           <div className="flex flex-col gap-0.5 mt-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">

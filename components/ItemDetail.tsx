@@ -9,10 +9,9 @@ interface DetailProps {
   onUpdate: (item: VaultItem) => void;
   onDelete: () => void;
   onBack: () => void;
-  isReadOnly?: boolean;
 }
 
-const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack, isReadOnly }) => {
+const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack }) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditingTrueValue, setIsEditingTrueValue] = useState(false);
   const [isEditingCondition, setIsEditingCondition] = useState(false);
@@ -137,9 +136,8 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack, i
                 </span>
               )}
               <button 
-                onClick={() => !isReadOnly && setIsEditingCondition(true)}
-                disabled={isReadOnly}
-                className={`bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-emerald-100 ${!isReadOnly ? 'hover:bg-emerald-100' : ''} transition-colors`}
+                onClick={() => setIsEditingCondition(true)}
+                className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-colors"
               >
                 {item.manualCondition || item.condition}
               </button>
@@ -214,9 +212,8 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack, i
             )}
           </div>
           <button 
-            onClick={() => !isReadOnly && setIsEditingTrueValue(!isEditingTrueValue)}
-            disabled={isReadOnly}
-            className={`p-3 bg-white/10 ${!isReadOnly ? 'hover:bg-white/20' : 'opacity-50'} rounded-2xl transition-all`}
+            onClick={() => setIsEditingTrueValue(!isEditingTrueValue)}
+            className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -278,40 +275,38 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack, i
           </div>
         )}
 
-        {!isReadOnly && (
-          <div className="mt-12 pt-8 border-t border-slate-50 flex flex-col gap-4">
-            <button
-              onClick={handleReValue}
-              disabled={isUpdating}
-              className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50"
-            >
-              <div className="flex items-center gap-3">
-                {isUpdating ? (
-                  <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                )}
-                <span>{isUpdating ? 'Researching...' : 'Start In-Depth Search'}</span>
-              </div>
-              {!isUpdating && <span className="text-[9px] normal-case opacity-60">Exhaustive history, variations & population reports</span>}
-            </button>
-            
-            <button
-              onClick={onDelete}
-              className="w-full py-4 text-red-500 font-black text-[11px] uppercase tracking-widest hover:bg-red-50 rounded-[1.5rem] transition-colors"
-            >
-              Purge from Vault
-            </button>
-            
-            <div className="text-center">
-               <p className="text-[9px] text-slate-300 font-black uppercase tracking-widest">
-                Last Analysis: {new Date(item.lastValued).toLocaleString()}
-              </p>
+        <div className="mt-12 pt-8 border-t border-slate-50 flex flex-col gap-4">
+          <button
+            onClick={handleReValue}
+            disabled={isUpdating}
+            className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl flex flex-col items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <div className="flex items-center gap-3">
+              {isUpdating ? (
+                <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              )}
+              <span>{isUpdating ? 'Researching...' : 'Start In-Depth Search'}</span>
             </div>
+            {!isUpdating && <span className="text-[9px] normal-case opacity-60">Exhaustive history, variations & population reports</span>}
+          </button>
+          
+          <button
+            onClick={onDelete}
+            className="w-full py-4 text-red-500 font-black text-[11px] uppercase tracking-widest hover:bg-red-50 rounded-[1.5rem] transition-colors"
+          >
+            Purge from Vault
+          </button>
+          
+          <div className="text-center">
+             <p className="text-[9px] text-slate-300 font-black uppercase tracking-widest">
+              Last Analysis: {new Date(item.lastValued).toLocaleString()}
+            </p>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

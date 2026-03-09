@@ -18,8 +18,6 @@ const App: React.FC = () => {
   const [view, setView] = useState<AppView>('vault');
   const [activeVault, setActiveVault] = useState<VaultType>('sports');
   const [items, setItems] = useState<VaultItem[]>([]);
-  const [isSharedView, setIsSharedView] = useState(false);
-  const [sharedCollectionName, setSharedCollectionName] = useState('');
   const [selectedItem, setSelectedItem] = useState<VaultItem | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -48,47 +46,10 @@ const App: React.FC = () => {
     };
     checkKey();
 
-    // Check for shared collection
-    const urlParams = new URLSearchParams(window.location.search);
-    const shareId = urlParams.get('share');
-
-    if (shareId) {
-      console.log(`[App] Detected share ID: ${shareId}`);
-      setLoading(true);
-      fetch(`/api/share/${shareId}`)
-        .then(res => {
-          if (!res.ok) throw new Error('Shared collection not found');
-          return res.json();
-        })
-        .then(data => {
-          console.log(`[App] Successfully loaded shared collection. Items: ${data.items?.length}`);
-          if (data.items && data.items.length > 0) {
-            setItems(data.items);
-            setIsSharedView(true);
-            setSharedCollectionName(`Shared Collection (${data.items.length} items)`);
-            setView('reports');
-          } else {
-            console.warn("[App] Shared collection is empty");
-            alert("This shared collection appears to be empty.");
-            loadLocalVault();
-          }
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error("[App] Error loading shared collection:", err);
-          alert("Could not load shared collection. Loading your local vault instead.");
-          loadLocalVault();
-        });
-    } else {
-      loadLocalVault();
-    }
-
-    function loadLocalVault() {
-      getAllItems().then(data => {
-        setItems(data);
-        setLoading(false);
-      });
-    }
+    getAllItems().then(data => {
+      setItems(data);
+      setLoading(false);
+    });
 
     const handleSwitchToSearch = () => setView('search_add');
     const handleSwitchToManual = () => setView('manual_add');
@@ -182,19 +143,6 @@ const App: React.FC = () => {
     setAiFilteredIds(null);
   };
 
-  const handleImportShared = async () => {
-    if (confirm(`Import these ${items.length} items into your personal vault?`)) {
-      setLoading(true);
-      for (const item of items) {
-        // Ensure unique IDs for imported items to avoid overwriting existing ones
-        const newItem = { ...item, id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5) };
-        await saveItem(newItem);
-      }
-      alert("Collection imported successfully!");
-      window.location.href = window.location.origin; // Reload without share param
-    }
-  };
-
   if (loading) return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center">
       <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
@@ -209,34 +157,7 @@ const App: React.FC = () => {
         totalValue={totalValue} 
         itemCount={filteredItems.length}
         onBack={() => setView('vault')} 
-        sharedTitle={isSharedView ? sharedCollectionName : undefined}
       />
-
-      {isSharedView && (
-        <div className="bg-indigo-600 text-white p-3 flex items-center justify-between animate-in slide-in-from-top duration-500">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🌍</span>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest">Viewing Shared Collection</p>
-              <p className="text-[8px] font-bold opacity-70">Read-only mode</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={handleImportShared}
-              className="px-3 py-1 bg-white text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm active:scale-95 transition-all"
-            >
-              Import
-            </button>
-            <button 
-              onClick={() => window.location.href = window.location.origin}
-              className="px-3 py-1 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm active:scale-95 transition-all border border-indigo-400"
-            >
-              Exit
-            </button>
-          </div>
-        </div>
-      )}
 
       {apiKeyMissing && (
         <div className="bg-amber-50 border-b border-amber-100 p-4 flex items-center justify-between">
@@ -294,7 +215,6 @@ const App: React.FC = () => {
             onUpdate={handleResult} 
             onDelete={() => handleDelete(selectedItem.id)} 
             onBack={() => setView('vault')} 
-            isReadOnly={isSharedView}
           />
         )}
 
