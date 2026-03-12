@@ -6,25 +6,56 @@ const STORE_NAME = 'vaultItems';
 
 const getDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 2);
-    request.onupgradeneeded = (e) => {
-      const db = (e.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    try {
+      const request = indexedDB.open(DB_NAME, 2);
+      request.onupgradeneeded = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => {
+        console.error("IndexedDB error:", request.error);
+        reject(request.error || new Error("Unknown IndexedDB error"));
+      };
+      request.onblocked = () => {
+        console.warn("IndexedDB blocked. Please close other tabs of this app.");
+        reject(new Error("Database blocked. Please close other tabs and try again."));
+      };
+    } catch (err) {
+      console.error("Failed to open IndexedDB:", err);
+      reject(err);
+    }
   });
 };
 
 export const saveItem = async (item: VaultItem) => {
+  if (!item.id) {
+    throw new Error("Cannot save item: Missing ID");
+  }
   const db = await getDB();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(item);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.put(item);
+      
+      request.onsuccess = () => resolve();
+      request.onerror = () => {
+        console.error("Store put error:", request.error);
+        reject(request.error);
+      };
+      
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => {
+        console.error("Transaction error:", tx.error);
+        reject(tx.error);
+      };
+    } catch (err) {
+      console.error("Failed to start transaction:", err);
+      reject(err);
+    }
   });
 };
 

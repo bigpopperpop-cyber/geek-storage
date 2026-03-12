@@ -66,10 +66,24 @@ const App: React.FC = () => {
   }, []);
 
   const handleResult = async (item: VaultItem) => {
-    await saveItem(item);
-    setItems(prev => [item, ...prev.filter(i => i.id !== item.id)]);
-    setSelectedItem(item);
-    setView('item');
+    try {
+      await saveItem(item);
+      setItems(prev => [item, ...prev.filter(i => i.id !== item.id)]);
+      setSelectedItem(item);
+      setView('item');
+      showMessage({
+        title: "Saved",
+        message: `${item.title} has been saved to your vault.`,
+        type: 'success'
+      });
+    } catch (error) {
+      console.error("Save Error", error);
+      showMessage({
+        title: "Save Failed",
+        message: "Could not save item to local storage. Please try again.",
+        type: 'error'
+      });
+    }
   };
 
   const handleDelete = async (id: string) => {
