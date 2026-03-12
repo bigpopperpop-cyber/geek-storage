@@ -140,9 +140,13 @@ const App: React.FC = () => {
         return (a.estimatedValue || 0) - (b.estimatedValue || 0);
       }
       // Default: newest (by dateAdded)
-      const dateA = new Date(a.dateAdded || 0).getTime();
-      const dateB = new Date(b.dateAdded || 0).getTime();
-      return dateB - dateA;
+      const dateA = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
+      const dateB = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
+      
+      const validA = isNaN(dateA) ? 0 : dateA;
+      const validB = isNaN(dateB) ? 0 : dateB;
+      
+      return validB - validA;
     });
 
   const totalValue = filteredItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0);
