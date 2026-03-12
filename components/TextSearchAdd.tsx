@@ -22,9 +22,24 @@ const TextSearchAdd: React.FC<TextSearchAddProps> = ({ category, onCancel, onRes
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        showMessage({
+          title: "File Too Large",
+          message: "Please select an image smaller than 10MB.",
+          type: 'error'
+        });
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result as string);
+      };
+      reader.onerror = () => {
+        showMessage({
+          title: "Error",
+          message: "Could not read the selected image.",
+          type: 'error'
+        });
       };
       reader.readAsDataURL(file);
     }

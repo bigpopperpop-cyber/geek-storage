@@ -11,13 +11,14 @@ import {
   Legend 
 } from 'recharts';
 
+const CATEGORIES = Object.keys(VAULT_CONFIG) as (keyof typeof VAULT_CONFIG)[];
+
 export default function Reports({ items, onRefresh }: { items: VaultItem[], onRefresh?: () => void }) {
   const { showMessage } = useUI();
   const [insights, setInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [importing, setImporting] = useState(false);
   const [lastInsightCount, setLastInsightCount] = useState(-1);
-  const categories = Object.keys(VAULT_CONFIG) as (keyof typeof VAULT_CONFIG)[];
 
   useEffect(() => {
     // Only load insights if we haven't loaded them for this collection size yet
@@ -71,7 +72,7 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
   };
 
   const chartData = useMemo(() => {
-    return categories.map(cat => {
+    return CATEGORIES.map(cat => {
       const catItems = items.filter(i => i.category === cat);
       const value = catItems.reduce((a, b) => a + (b.estimatedValue || 0), 0);
       return {
@@ -82,7 +83,7 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
         icon: VAULT_CONFIG[cat].icon
       };
     }).filter(d => d.count > 0);
-  }, [items, categories]);
+  }, [items]);
 
   const totalValue = items.reduce((a, b) => a + (b.estimatedValue || 0), 0);
   

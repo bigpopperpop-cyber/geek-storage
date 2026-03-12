@@ -53,6 +53,14 @@ const App: React.FC = () => {
     getAllItems().then(data => {
       setItems(data);
       setLoading(false);
+    }).catch(err => {
+      console.error("Failed to load items:", err);
+      setLoading(false);
+      showMessage({
+        title: "Load Error",
+        message: "Could not load your collection from local storage.",
+        type: 'error'
+      });
     });
 
     const handleSwitchToSearch = () => setView('search_add');
@@ -65,7 +73,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleResult = async (item: VaultItem) => {
+  const handleResult = React.useCallback(async (item: VaultItem) => {
     try {
       await saveItem(item);
       setItems(prev => [item, ...prev.filter(i => i.id !== item.id)]);
@@ -84,16 +92,31 @@ const App: React.FC = () => {
         type: 'error'
       });
     }
-  };
+  }, [showMessage]);
 
-  const handleDelete = async (id: string) => {
-    await deleteItem(id);
-    setItems(prev => prev.filter(i => i.id !== id));
-    setView('vault');
-    setShowDeleteConfirm(null);
-  };
+  const handleDelete = React.useCallback(async (id: string) => {
+    try {
+      await deleteItem(id);
+      setItems(prev => prev.filter(i => i.id !== id));
+      setSelectedItem(null);
+      setView('vault');
+      setShowDeleteConfirm(null);
+      showMessage({
+        title: "Deleted",
+        message: "Item removed from your vault.",
+        type: 'success'
+      });
+    } catch (error) {
+      console.error("Delete Error", error);
+      showMessage({
+        title: "Delete Failed",
+        message: "Could not remove item. Please try again.",
+        type: 'error'
+      });
+    }
+  }, [showMessage]);
 
-  const handleSearch = async (query: string, isAI: boolean) => {
+  const handleSearch = React.useCallback(async (query: string, isAI: boolean) => {
     setSearchQuery(query);
     if (!query) {
       setAiFilteredIds(null);
@@ -119,51 +142,55 @@ const App: React.FC = () => {
     } else {
       setAiFilteredIds(null);
     }
-  };
+  }, [items, activeVault, showMessage]);
 
-  const filteredItems = items
-    .filter(i => i.category === activeVault)
-    .filter(i => {
-      // AI Filter
-      if (aiFilteredIds !== null) {
-        return aiFilteredIds.includes(i.id);
-      }
+  const filteredItems = React.useMemo(() => {
+    return items
+      .filter(i => i.category === activeVault)
+      .filter(i => {
+        // AI Filter
+        if (aiFilteredIds !== null) {
+          return aiFilteredIds.includes(i.id);
+        }
 
-      // Keyword Search
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = !searchQuery || 
-        (i.title?.toLowerCase()?.includes(q)) ||
-        (i.subTitle?.toLowerCase()?.includes(q)) ||
-        (i.brand?.toLowerCase()?.includes(q)) ||
-        (i.significance?.toLowerCase()?.includes(q));
+        // Keyword Search
+        const q = searchQuery.toLowerCase();
+        const matchesSearch = !searchQuery || 
+          (i.title?.toLowerCase()?.includes(q)) ||
+          (i.subTitle?.toLowerCase()?.includes(q)) ||
+          (i.brand?.toLowerCase()?.includes(q)) ||
+          (i.significance?.toLowerCase()?.includes(q));
 
-      // Manual Filters
-      const matchesYear = !filters.year || (i.year && i.year.includes(filters.year));
-      const matchesBrand = !filters.brand || (i.brand?.toLowerCase()?.includes(filters.brand.toLowerCase()));
-      const matchesRarity = !filters.rarity || (i.rarity?.toLowerCase()?.includes(filters.rarity.toLowerCase()));
-      const matchesCondition = !filters.condition || (i.condition?.toLowerCase()?.includes(filters.condition.toLowerCase()));
-      const matchesValue = (i.estimatedValue || 0) >= filters.minValue && (i.estimatedValue || 0) <= filters.maxValue;
+        // Manual Filters
+        const matchesYear = !filters.year || (i.year && i.year.includes(filters.year));
+        const matchesBrand = !filters.brand || (i.brand?.toLowerCase()?.includes(filters.brand.toLowerCase()));
+        const matchesRarity = !filters.rarity || (i.rarity?.toLowerCase()?.includes(filters.rarity.toLowerCase()));
+        const matchesCondition = !filters.condition || (i.condition?.toLowerCase()?.includes(filters.condition.toLowerCase()));
+        const matchesValue = (i.estimatedValue || 0) >= filters.minValue && (i.estimatedValue || 0) <= filters.maxValue;
 
-      return !!(matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue);
-    })
-    .sort((a, b) => {
-      if (filters.sortBy === 'value-high') {
-        return (b.estimatedValue || 0) - (a.estimatedValue || 0);
-      }
-      if (filters.sortBy === 'value-low') {
-        return (a.estimatedValue || 0) - (b.estimatedValue || 0);
-      }
-      // Default: newest (by dateAdded)
-      const dateA = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
-      const dateB = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
-      
-      const validA = isNaN(dateA) ? 0 : dateA;
-      const validB = isNaN(dateB) ? 0 : dateB;
-      
-      return validB - validA;
-    });
+        return !!(matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue);
+      })
+      .sort((a, b) => {
+        if (filters.sortBy === 'value-high') {
+          return (b.estimatedValue || 0) - (a.estimatedValue || 0);
+        }
+        if (filters.sortBy === 'value-low') {
+          return (a.estimatedValue || 0) - (b.estimatedValue || 0);
+        }
+        // Default: newest (by dateAdded)
+        const dateA = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
+        const dateB = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
+        
+        const validA = isNaN(dateA) ? 0 : dateA;
+        const validB = isNaN(dateB) ? 0 : dateB;
+        
+        return validB - validA;
+      });
+  }, [items, activeVault, aiFilteredIds, searchQuery, filters]);
 
-  const totalValue = filteredItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0);
+  const totalValue = React.useMemo(() => 
+    filteredItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0)
+  , [filteredItems]);
 
   const handleVaultSwitch = (vault: VaultType) => {
     setActiveVault(vault);

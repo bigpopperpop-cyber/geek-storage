@@ -16,16 +16,18 @@ const UIContext = createContext<UIContextType | undefined>(undefined);
 export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [messageConfig, setMessageConfig] = useState<MessageConfig | null>(null);
 
-  const showMessage = (config: MessageConfig) => {
+  const showMessage = React.useCallback((config: MessageConfig) => {
     setMessageConfig(config);
-  };
+  }, []);
 
-  const closeMessage = () => {
+  const closeMessage = React.useCallback(() => {
     setMessageConfig(null);
-  };
+  }, []);
+
+  const contextValue = React.useMemo(() => ({ showMessage }), [showMessage]);
 
   return (
-    <UIContext.Provider value={{ showMessage }}>
+    <UIContext.Provider value={contextValue}>
       {children}
       {messageConfig && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">

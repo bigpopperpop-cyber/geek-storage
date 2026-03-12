@@ -15,7 +15,7 @@ const resizeImage = (base64Str: string): Promise<string> => {
     img.src = base64Str;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 1600;
+      const MAX_WIDTH = 1200; // Reduced from 1600 for better mobile stability
       let width = img.width;
       let height = img.height;
       if (width > MAX_WIDTH) {
@@ -26,7 +26,7 @@ const resizeImage = (base64Str: string): Promise<string> => {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      resolve(canvas.toDataURL('image/jpeg', 0.7)); // Slightly lower quality for memory
     };
   });
 };

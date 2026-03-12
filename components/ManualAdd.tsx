@@ -2,6 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { VaultType, VaultItem, COLLECTIBLE_CONDITIONS, COMIC_CONDITIONS } from '../types';
 import { ArrowLeft, Save, Camera, X } from 'lucide-react';
+import { useUI } from '../context/UIContext';
 
 interface ManualAddProps {
   category: VaultType;
@@ -10,6 +11,7 @@ interface ManualAddProps {
 }
 
 const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) => {
+  const { showMessage } = useUI();
   const conditions = category === 'comics' ? COMIC_CONDITIONS : COLLECTIBLE_CONDITIONS;
   const [formData, setFormData] = useState({
     title: '',
@@ -28,9 +30,24 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        showMessage({
+          title: "File Too Large",
+          message: "Please select an image smaller than 10MB.",
+          type: 'error'
+        });
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setImage(reader.result as string);
+      };
+      reader.onerror = () => {
+        showMessage({
+          title: "Error",
+          message: "Could not read the selected image.",
+          type: 'error'
+        });
       };
       reader.readAsDataURL(file);
     }
