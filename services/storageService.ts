@@ -246,18 +246,37 @@ export const repairCollection = async (onProgress?: (msg: string) => void) => {
 };
 
 export const clearCategory = async (category: string) => {
-  const items = await getAllItems();
   const db = await getDB();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  const store = tx.objectStore(STORE_NAME);
-  
-  const toDelete = items.filter(i => i.category === category);
-  for (const item of toDelete) {
-    store.delete(item.id);
-  }
   
   return new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.openCursor();
+      
+      request.onsuccess = (event: any) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          if (cursor.value.category === category) {
+            cursor.delete();
+          }
+          cursor.continue();
+        }
+      };
+      
+      request.onerror = () => {
+        console.error("Cursor error in clearCategory:", request.error);
+        reject(request.error);
+      };
+      
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => {
+        console.error("Transaction error in clearCategory:", tx.error);
+        reject(tx.error);
+      };
+    } catch (err) {
+      console.error("Failed to start transaction in clearCategory:", err);
+      reject(err);
+    }
   });
 };

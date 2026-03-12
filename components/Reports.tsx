@@ -219,9 +219,13 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
       setClearConfirm(null);
       if (onRefresh) onRefresh();
     } catch (err: any) {
+      console.error("Clear Category Error:", err);
+      const isInternalError = err?.message?.includes('Internal error') || err?.name === 'UnknownError';
       showMessage({
         title: "Clear Failed",
-        message: err.message || "Unknown error",
+        message: isInternalError 
+          ? "The database is locked or corrupted. Please try refreshing the page, or use the 'Hard Reset App' button below if this persists."
+          : `Error: ${err.message || "Unknown error"}.`,
         type: 'error'
       });
     }
