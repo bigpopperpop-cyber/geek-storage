@@ -1,5 +1,6 @@
 
 import { VaultItem } from '../types';
+import * as XLSX from 'xlsx';
 
 const DB_NAME = 'VaultAIDB';
 const STORE_NAME = 'vaultItems';
@@ -89,6 +90,39 @@ export const exportCollection = async () => {
   link.download = `vault-backup-${new Date().toISOString().split('T')[0]}.json`;
   link.click();
   URL.revokeObjectURL(url);
+};
+
+export const exportToExcel = async () => {
+  const items = await getAllItems();
+  
+  // Flatten items for Excel
+  const flattenedData = items.map(item => ({
+    ID: item.id,
+    Category: item.category,
+    Title: item.title,
+    SubTitle: item.subTitle,
+    Year: item.year,
+    Brand: item.brand,
+    CardNumber: item.cardNumber,
+    Significance: item.significance,
+    Condition: item.manualCondition || item.condition,
+    Rarity: item.rarity,
+    EstimatedValue: item.estimatedValue,
+    TrueValue: item.trueValue,
+    DateAdded: item.dateAdded,
+    LastValued: item.lastValued,
+    Facts: item.facts.join('; '),
+    InvestmentOutlook: item.investmentOutlook,
+    LowValue: item.lowValue,
+    HighValue: item.highValue
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(flattenedData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Vault Items");
+  
+  // Generate buffer and download
+  XLSX.writeFile(workbook, `vault-export-${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
 export const importCollection = async (file: File): Promise<VaultItem[]> => {

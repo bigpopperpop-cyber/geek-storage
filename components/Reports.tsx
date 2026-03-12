@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { VaultItem, VAULT_CONFIG } from '../types';
 import { getCollectionInsights } from '../services/geminiService';
-import { exportCollection, importCollection } from '../services/storageService';
-import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck, Share2, Printer, MessageSquare } from 'lucide-react';
+import { exportCollection, exportToExcel, importCollection } from '../services/storageService';
+import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck, Share2, Printer, MessageSquare, FileSpreadsheet } from 'lucide-react';
 import { useUI } from '../context/UIContext';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, 
@@ -385,19 +385,27 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <button 
                 onClick={exportCollection}
                 className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group"
               >
                 <Download className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Backup</span>
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">JSON</span>
+              </button>
+
+              <button 
+                onClick={exportToExcel}
+                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group"
+              >
+                <FileSpreadsheet className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Excel</span>
               </button>
               
               <label className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors group cursor-pointer">
-                <Upload className="w-5 h-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                <Upload className="w-5 h-5 text-slate-400 group-hover:text-amber-600 transition-colors" />
                 <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                  {importing ? 'Restoring...' : 'Restore'}
+                  {importing ? '...' : 'Restore'}
                 </span>
                 <input 
                   type="file" 
@@ -409,7 +417,7 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
               </label>
             </div>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-center leading-relaxed">
-              Export your collection as a JSON file for safe keeping or to transfer between devices.
+              Export your collection as JSON for backup or Excel for spreadsheet analysis.
             </p>
           </div>
         </div>
