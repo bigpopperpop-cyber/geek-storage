@@ -161,6 +161,17 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
+
+        <button 
+          onClick={() => onUpdate({ ...item, isTreasure: !item.isTreasure })}
+          className={`absolute top-6 right-6 p-3 rounded-full backdrop-blur-lg transition-all active:scale-90 shadow-xl ${
+            item.isTreasure ? 'bg-amber-500 text-white' : 'bg-black/50 text-white hover:bg-black/70'
+          }`}
+        >
+          <svg className="w-5 h-5" fill={item.isTreasure ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+          </svg>
+        </button>
       </div>
 
       <div className="p-8">

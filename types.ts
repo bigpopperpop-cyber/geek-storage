@@ -1,6 +1,6 @@
 
 export type VaultType = 'sports' | 'comics' | 'fantasy' | 'coins' | 'other';
-export type AppView = 'vault' | 'scan' | 'item' | 'reports' | 'search_add' | 'manual_add';
+export type AppView = 'vault' | 'scan' | 'item' | 'reports' | 'search_add' | 'manual_add' | 'treasure';
 
 // Fix: Added ComicCondition type used in ComicForm.tsx
 export type ComicCondition = 'Gem Mint' | 'Mint' | 'Near Mint' | 'Very Fine' | 'Fine' | 'Very Good' | 'Good' | 'Fair' | 'Poor';
@@ -74,6 +74,7 @@ export interface VaultItem {
   keyFeatures?: string;
   notes?: string;
   investmentOutlook?: string;
+  isTreasure?: boolean;
 }
 
 export const VAULT_CONFIG = {

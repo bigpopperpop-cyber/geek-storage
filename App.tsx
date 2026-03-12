@@ -87,6 +87,8 @@ const App: React.FC = () => {
       await saveItem(item);
       setItems(prev => [item, ...prev.filter(i => i.id !== item.id)]);
       setSelectedItem(item);
+      // If we are in treasure view and the item is not treasure, we might want to stay in treasure view
+      // but usually we want to see the item detail.
       setView('item');
       showMessage({
         title: "Saved",
@@ -105,6 +107,27 @@ const App: React.FC = () => {
       });
     }
   }, [showMessage]);
+
+  const handleToggleTreasure = React.useCallback(async (item: VaultItem) => {
+    const updated = { ...item, isTreasure: !item.isTreasure };
+    try {
+      await saveItem(updated);
+      setItems(prev => prev.map(i => i.id === item.id ? updated : i));
+      if (selectedItem?.id === item.id) setSelectedItem(updated);
+      showMessage({
+        title: updated.isTreasure ? "Added to Treasure Box" : "Removed from Treasure Box",
+        message: `${item.title} status updated.`,
+        type: 'success'
+      });
+    } catch (error) {
+      console.error("Treasure Toggle Error", error);
+      showMessage({
+        title: "Update Failed",
+        message: "Could not update treasure status.",
+        type: 'error'
+      });
+    }
+  }, [selectedItem, showMessage]);
 
   const handleDelete = React.useCallback(async (id: string) => {
     try {
@@ -159,7 +182,11 @@ const App: React.FC = () => {
   const filteredItems = React.useMemo(() => {
     try {
       return items
-        .filter(i => i && i.category === activeVault)
+        .filter(i => {
+          if (!i) return false;
+          if (view === 'treasure') return i.isTreasure;
+          return i.category === activeVault;
+        })
         .filter(i => {
           try {
             // AI Filter
@@ -212,7 +239,7 @@ const App: React.FC = () => {
       console.error("Global filter error:", e);
       return [];
     }
-  }, [items, activeVault, aiFilteredIds, searchQuery, filters]);
+  }, [items, activeVault, aiFilteredIds, searchQuery, filters, view]);
 
   const totalValue = React.useMemo(() => 
     filteredItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0)
@@ -295,15 +322,20 @@ const App: React.FC = () => {
       )}
 
       <main className="flex-grow overflow-y-auto px-5 pb-32 pt-6">
-        {view === 'vault' && (
+        {(view === 'vault' || view === 'treasure') && (
           <>
-            <VaultSwitcher activeVault={activeVault} setActiveVault={handleVaultSwitch} />
+            {view === 'vault' && <VaultSwitcher activeVault={activeVault} setActiveVault={handleVaultSwitch} />}
             <SearchFilter 
               onSearch={handleSearch} 
               onFilterChange={setFilters} 
               isSearching={isAISearching} 
             />
-            <ItemList items={filteredItems} onSelectItem={(i) => { setSelectedItem(i); setView('item'); }} />
+            <ItemList 
+              items={filteredItems} 
+              onSelectItem={(i) => { setSelectedItem(i); setView('item'); }} 
+              onToggleTreasure={handleToggleTreasure}
+              isTreasureView={view === 'treasure'}
+            />
           </>
         )}
 

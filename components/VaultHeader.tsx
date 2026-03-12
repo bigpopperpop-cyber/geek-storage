@@ -39,7 +39,11 @@ const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, ite
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
-            VAULT <span className="opacity-20">/</span> {(config?.label || 'UNKNOWN').toUpperCase()}
+            {view === 'treasure' ? (
+              <>TREASURE <span className="opacity-20">/</span> BOX</>
+            ) : (
+              <>VAULT <span className="opacity-20">/</span> {(config?.label || 'UNKNOWN').toUpperCase()}</>
+            )}
           </h1>
           <div className="flex flex-col gap-0.5 mt-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
