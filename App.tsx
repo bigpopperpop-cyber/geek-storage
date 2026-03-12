@@ -13,8 +13,11 @@ import SearchFilter, { FilterState } from './components/SearchFilter';
 import TextSearchAdd from './components/TextSearchAdd';
 import ManualAdd from './components/ManualAdd';
 import { aiFilterItems } from './services/geminiService';
+import ConfirmModal from './components/ConfirmModal';
+import { useUI } from './context/UIContext';
 
 const App: React.FC = () => {
+  const { showMessage } = useUI();
   const [view, setView] = useState<AppView>('vault');
   const [activeVault, setActiveVault] = useState<VaultType>('sports');
   const [items, setItems] = useState<VaultItem[]>([]);
@@ -36,6 +39,7 @@ const App: React.FC = () => {
   });
 
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     const checkKey = () => {
@@ -69,11 +73,10 @@ const App: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Delete this from your vault?")) {
-      await deleteItem(id);
-      setItems(prev => prev.filter(i => i.id !== id));
-      setView('vault');
-    }
+    await deleteItem(id);
+    setItems(prev => prev.filter(i => i.id !== id));
+    setView('vault');
+    setShowDeleteConfirm(null);
   };
 
   const handleSearch = async (query: string, isAI: boolean) => {
@@ -90,7 +93,11 @@ const App: React.FC = () => {
         setAiFilteredIds(ids);
       } catch (error) {
         console.error("AI Search Error", error);
-        alert("AI Search failed. Falling back to keyword search.");
+        showMessage({
+          title: "Search Error",
+          message: "AI Search failed. Falling back to keyword search.",
+          type: 'error'
+        });
         setAiFilteredIds(null);
       } finally {
         setIsAISearching(false);
@@ -110,17 +117,17 @@ const App: React.FC = () => {
 
       // Keyword Search
       const matchesSearch = !searchQuery || 
-        i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        i.subTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        i.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        i.significance.toLowerCase().includes(searchQuery.toLowerCase());
+        (i.title?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (i.subTitle?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (i.brand?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (i.significance?.toLowerCase().includes(searchQuery.toLowerCase()));
 
       // Manual Filters
-      const matchesYear = !filters.year || i.year.includes(filters.year);
-      const matchesBrand = !filters.brand || i.brand.toLowerCase().includes(filters.brand.toLowerCase());
+      const matchesYear = !filters.year || (i.year && i.year.includes(filters.year));
+      const matchesBrand = !filters.brand || (i.brand && i.brand.toLowerCase().includes(filters.brand.toLowerCase()));
       const matchesRarity = !filters.rarity || (i.rarity && i.rarity.toLowerCase().includes(filters.rarity.toLowerCase()));
       const matchesCondition = !filters.condition || (i.condition && i.condition.toLowerCase().includes(filters.condition.toLowerCase()));
-      const matchesValue = i.estimatedValue >= filters.minValue && i.estimatedValue <= filters.maxValue;
+      const matchesValue = (i.estimatedValue || 0) >= filters.minValue && (i.estimatedValue || 0) <= filters.maxValue;
 
       return matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue;
     })
@@ -132,7 +139,9 @@ const App: React.FC = () => {
         return (a.estimatedValue || 0) - (b.estimatedValue || 0);
       }
       // Default: newest (by dateAdded)
-      return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime();
+      const dateA = new Date(a.dateAdded || 0).getTime();
+      const dateB = new Date(b.dateAdded || 0).getTime();
+      return dateB - dateA;
     });
 
   const totalValue = filteredItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0);
@@ -141,6 +150,15 @@ const App: React.FC = () => {
     setActiveVault(vault);
     setSearchQuery('');
     setAiFilteredIds(null);
+    setFilters({
+      year: '',
+      brand: '',
+      minValue: 0,
+      maxValue: 1000000,
+      rarity: '',
+      condition: '',
+      sortBy: 'newest'
+    });
   };
 
   if (loading) return (
@@ -213,7 +231,7 @@ const App: React.FC = () => {
           <ItemDetail 
             item={selectedItem} 
             onUpdate={handleResult} 
-            onDelete={() => handleDelete(selectedItem.id)} 
+            onDelete={() => setShowDeleteConfirm(selectedItem.id)} 
             onBack={() => setView('vault')} 
           />
         )}
@@ -222,6 +240,16 @@ const App: React.FC = () => {
           <Reports items={items} onRefresh={() => getAllItems().then(setItems)} />
         )}
       </main>
+
+      <ConfirmModal 
+        isOpen={!!showDeleteConfirm}
+        title="Purge Item?"
+        message="This action cannot be undone. This item will be permanently removed from your vault."
+        confirmLabel="Purge"
+        isDanger={true}
+        onConfirm={() => showDeleteConfirm && handleDelete(showDeleteConfirm)}
+        onCancel={() => setShowDeleteConfirm(null)}
+      />
 
       <Navbar currentView={view} setView={setView} />
     </div>

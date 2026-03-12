@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { VaultItem, VAULT_CONFIG, COLLECTIBLE_CONDITIONS } from '../types';
 import { reEvaluateItem } from '../services/geminiService';
 import { Camera } from 'lucide-react';
+import { useUI } from '../context/UIContext';
 
 interface DetailProps {
   item: VaultItem;
@@ -12,6 +13,7 @@ interface DetailProps {
 }
 
 const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack }) => {
+  const { showMessage } = useUI();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditingTrueValue, setIsEditingTrueValue] = useState(false);
   const [isEditingCondition, setIsEditingCondition] = useState(false);
@@ -57,7 +59,11 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
       }
     } catch (err: any) {
       console.error("In-depth search error:", err);
-      alert("In-depth search failed. This can happen if the AI is busy or the item is very rare. Please try again in a moment.");
+      showMessage({
+        title: "Search Failed",
+        message: "In-depth search failed. This can happen if the AI is busy or the item is very rare. Please try again in a moment.",
+        type: 'error'
+      });
     } finally {
       setIsUpdating(false);
     }

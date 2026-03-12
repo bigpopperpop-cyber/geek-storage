@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { AppView, VaultType, VAULT_CONFIG } from '../types';
+import { useUI } from '../context/UIContext';
 
 interface HeaderProps {
   view: AppView;
@@ -11,6 +12,7 @@ interface HeaderProps {
 }
 
 const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, itemCount, onBack }) => {
+  const { showMessage } = useUI();
   const config = VAULT_CONFIG[activeVault];
 
   const handleFixKey = async () => {
@@ -18,9 +20,17 @@ const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, ite
       await window.aistudio.openSelectKey();
       // The platform will inject the new key into process.env.API_KEY
       // We might need to refresh or just let the next call use it
-      alert("API Key selection opened. After selecting a key, please try your action again.");
+      showMessage({
+        title: "Key Selection",
+        message: "API Key selection opened. After selecting a key, please try your action again.",
+        type: 'info'
+      });
     } else {
-      alert("API Key selection is only available in the AI Studio environment.");
+      showMessage({
+        title: "Environment Error",
+        message: "API Key selection is only available in the AI Studio environment.",
+        type: 'error'
+      });
     }
   };
 

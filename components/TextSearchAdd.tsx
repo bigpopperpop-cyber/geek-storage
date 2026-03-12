@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { VaultType, VaultItem } from '../types';
 import { searchAndAppraiseByText } from '../services/geminiService';
 import { Search, Sparkles, ArrowLeft, Camera, X } from 'lucide-react';
+import { useUI } from '../context/UIContext';
 
 interface TextSearchAddProps {
   category: VaultType;
@@ -11,6 +12,7 @@ interface TextSearchAddProps {
 }
 
 const TextSearchAdd: React.FC<TextSearchAddProps> = ({ category, onCancel, onResult }) => {
+  const { showMessage } = useUI();
   const [query, setQuery] = useState('');
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState('');
@@ -59,7 +61,11 @@ const TextSearchAdd: React.FC<TextSearchAddProps> = ({ category, onCancel, onRes
             image: image || undefined
           };
 
-          alert(`Got it, Master Coder! ${data.name} has been added to the vault.`);
+          showMessage({
+            title: "Data Bridge Active",
+            message: `Got it, Master Coder! ${data.name} has been added to the vault.`,
+            type: 'success'
+          });
           onResult(newItem);
           return;
         }
@@ -92,7 +98,11 @@ const TextSearchAdd: React.FC<TextSearchAddProps> = ({ category, onCancel, onRes
       } else {
         msg = err.message || "Unknown error.";
       }
-      alert(msg);
+      showMessage({
+        title: "Search Failed",
+        message: msg,
+        type: 'error'
+      });
     } finally {
       setProcessing(false);
     }

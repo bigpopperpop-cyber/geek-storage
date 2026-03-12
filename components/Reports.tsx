@@ -4,6 +4,7 @@ import { VaultItem, VAULT_CONFIG } from '../types';
 import { getCollectionInsights } from '../services/geminiService';
 import { exportCollection, importCollection } from '../services/storageService';
 import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck, Share2, Printer, MessageSquare } from 'lucide-react';
+import { useUI } from '../context/UIContext';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, Tooltip, 
@@ -11,6 +12,7 @@ import {
 } from 'recharts';
 
 export default function Reports({ items, onRefresh }: { items: VaultItem[], onRefresh?: () => void }) {
+  const { showMessage } = useUI();
   const [insights, setInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -33,7 +35,11 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
       setLastInsightCount(items.length);
     } catch (err: any) {
       console.error(err);
-      alert("Could not fetch insights: " + (err.message || "Unknown error"));
+      showMessage({
+        title: "Insight Error",
+        message: "Could not fetch insights: " + (err.message || "Unknown error"),
+        type: 'error'
+      });
     } finally {
       setLoadingInsights(false);
     }
@@ -46,10 +52,18 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
     setImporting(true);
     try {
       await importCollection(file);
-      alert('Collection restored successfully!');
+      showMessage({
+        title: "Success",
+        message: "Collection restored successfully!",
+        type: 'success'
+      });
       if (onRefresh) onRefresh();
     } catch (err: any) {
-      alert(err.message);
+      showMessage({
+        title: "Restore Failed",
+        message: err.message || "Unknown error during restore",
+        type: 'error'
+      });
     } finally {
       setImporting(false);
       e.target.value = '';
@@ -74,7 +88,11 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
   
   const handleShare = async () => {
     if (items.length === 0) {
-      alert("Your collection is empty. Add some items before sharing!");
+      showMessage({
+        title: "Empty Vault",
+        message: "Your collection is empty. Add some items before sharing!",
+        type: 'info'
+      });
       return;
     }
 
@@ -95,16 +113,28 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
       // Fallback: Copy to clipboard
       try {
         await navigator.clipboard.writeText(`${summary}\n${shareUrl}`);
-        alert('Collection summary and link copied to clipboard!');
+        showMessage({
+          title: "Copied",
+          message: "Collection summary and link copied to clipboard!",
+          type: 'success'
+        });
       } catch (err) {
-        alert('Failed to copy share link.');
+        showMessage({
+          title: "Copy Failed",
+          message: "Failed to copy share link.",
+          type: 'error'
+        });
       }
     }
   };
 
   const handleSMS = () => {
     if (items.length === 0) {
-      alert("Your collection is empty. Add some items before sharing!");
+      showMessage({
+        title: "Empty Vault",
+        message: "Your collection is empty. Add some items before sharing!",
+        type: 'info'
+      });
       return;
     }
 
