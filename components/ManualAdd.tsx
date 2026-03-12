@@ -10,8 +10,31 @@ interface ManualAddProps {
   onResult: (item: VaultItem) => void;
 }
 
+const resizeImage = (base64Str: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 1200;
+      let width = img.width;
+      let height = img.height;
+      if (width > MAX_WIDTH) {
+        height *= MAX_WIDTH / width;
+        width = MAX_WIDTH;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+  });
+};
+
 const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) => {
   const { showMessage } = useUI();
+  const [saving, setSaving] = useState(false);
   const conditions = category === 'comics' ? COMIC_CONDITIONS : COLLECTIBLE_CONDITIONS;
   const [formData, setFormData] = useState({
     title: '',
@@ -39,8 +62,9 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
         return;
       }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
+      reader.onloadend = async () => {
+        const resized = await resizeImage(reader.result as string);
+        setImage(resized);
       };
       reader.onerror = () => {
         showMessage({
@@ -53,27 +77,43 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.estimatedValue) return;
+    if (!formData.title || !formData.estimatedValue || saving) return;
 
-    onResult({
-      id: Date.now().toString(36),
-      category,
-      title: formData.title,
-      subTitle: formData.cardNumber ? `#${formData.cardNumber}` : '',
-      year: formData.year,
-      brand: formData.brand,
-      cardNumber: formData.cardNumber,
-      condition: formData.condition || 'Raw',
-      rarity: formData.rarity,
-      estimatedValue: parseFloat(formData.estimatedValue),
-      significance: formData.significance,
-      facts: formData.notes ? [formData.notes] : ['Manually added item'],
-      dateAdded: new Date().toISOString(),
-      lastValued: new Date().toISOString(),
-      image: image || undefined
-    });
+    const value = parseFloat(formData.estimatedValue);
+    if (isNaN(value)) {
+      showMessage({
+        title: "Invalid Value",
+        message: "Please enter a valid number for the estimated value.",
+        type: 'error'
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onResult({
+        id: Date.now().toString(36),
+        category,
+        title: formData.title,
+        subTitle: formData.cardNumber ? `#${formData.cardNumber}` : '',
+        year: formData.year,
+        brand: formData.brand,
+        cardNumber: formData.cardNumber,
+        condition: formData.condition || 'Raw',
+        rarity: formData.rarity,
+        estimatedValue: value,
+        significance: formData.significance,
+        facts: formData.notes ? [formData.notes] : ['Manually added item'],
+        dateAdded: new Date().toISOString(),
+        lastValued: new Date().toISOString(),
+        image: image || undefined
+      });
+    } catch (err) {
+      // Error is handled in App.tsx handleResult
+      setSaving(false);
+    }
   };
 
   return (
@@ -202,10 +242,15 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
 
         <button
           type="submit"
-          className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all hover:bg-slate-800 flex items-center justify-center gap-3 mt-4"
+          disabled={saving}
+          className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all hover:bg-slate-800 flex items-center justify-center gap-3 mt-4 disabled:opacity-50"
         >
-          <Save className="w-5 h-5" />
-          Save to Vault
+          {saving ? (
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Save className="w-5 h-5" />
+          )}
+          {saving ? 'Saving...' : 'Save to Vault'}
         </button>
       </form>
     </div>

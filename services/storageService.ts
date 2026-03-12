@@ -42,16 +42,18 @@ export const saveItem = async (item: VaultItem) => {
       const store = tx.objectStore(STORE_NAME);
       const request = store.put(item);
       
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        // We wait for transaction oncomplete for full durability
+      };
       request.onerror = () => {
         console.error("Store put error:", request.error);
-        reject(request.error);
+        reject(request.error || new Error("Failed to put item in store"));
       };
       
       tx.oncomplete = () => resolve();
       tx.onerror = () => {
         console.error("Transaction error:", tx.error);
-        reject(tx.error);
+        reject(tx.error || new Error("Transaction failed"));
       };
     } catch (err) {
       console.error("Failed to start transaction:", err);

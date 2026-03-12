@@ -84,11 +84,14 @@ const App: React.FC = () => {
         message: `${item.title} has been saved to your vault.`,
         type: 'success'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Save Error", error);
+      const isQuotaError = error?.name === 'QuotaExceededError' || error?.message?.includes('quota');
       showMessage({
         title: "Save Failed",
-        message: "Could not save item to local storage. Please try again.",
+        message: isQuotaError 
+          ? "Storage quota exceeded. Your device storage might be full or the image is too large."
+          : `Could not save item: ${error?.message || 'Unknown error'}. Please try again.`,
         type: 'error'
       });
     }
