@@ -159,14 +159,48 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
       });
       if (onRefresh) onRefresh();
     } catch (err: any) {
+      console.error("Repair Error Detail:", err);
       showMessage({
         title: "Repair Failed",
-        message: err.message || "Unknown error during repair",
+        message: `Error: ${err.message || "Unknown error"}. If your storage is completely full, you may need to delete some items manually or use 'Hard Reset'.`,
         type: 'error'
       });
     } finally {
       setRepairing(false);
       setRepairStatus('');
+    }
+  };
+
+  const handleHardReset = async () => {
+    if (!window.confirm("NUCLEAR OPTION: This will PERMANENTLY DELETE your entire collection and reset the app. This cannot be undone. Are you absolutely sure?")) {
+      return;
+    }
+
+    try {
+      setRepairing(true);
+      setRepairStatus('Deleting database...');
+      
+      // Close any existing connections if possible
+      // In a real app we'd need to reload, but let's try to delete
+      const req = indexedDB.deleteDatabase('VaultAIDB');
+      req.onsuccess = () => {
+        window.location.reload();
+      };
+      req.onerror = () => {
+        showMessage({
+          title: "Reset Failed",
+          message: "Could not delete database. Please clear your browser cache manually.",
+          type: 'error'
+        });
+        setRepairing(false);
+      };
+      req.onblocked = () => {
+        alert("Database blocked. Please close all other tabs of this app and try again.");
+        setRepairing(false);
+      };
+    } catch (err) {
+      console.error(err);
+      setRepairing(false);
     }
   };
 
@@ -536,6 +570,15 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
                   );
                 })}
               </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100">
+              <button 
+                onClick={handleHardReset}
+                className="w-full py-3 rounded-xl border-2 border-red-100 text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-colors"
+              >
+                Hard Reset App
+              </button>
             </div>
             
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-center leading-relaxed">

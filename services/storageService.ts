@@ -166,10 +166,6 @@ export const getStorageEstimate = async () => {
 
 export const repairCollection = async (onProgress?: (msg: string) => void) => {
   const items = await getAllItems();
-  const db = await getDB();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  const store = tx.objectStore(STORE_NAME);
-  
   let repairedCount = 0;
   
   const resizeImage = (base64Str: string): Promise<string> => {
@@ -178,7 +174,7 @@ export const repairCollection = async (onProgress?: (msg: string) => void) => {
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1000; // Aggressive resize for repair
+        const MAX_WIDTH = 1000;
         let width = img.width;
         let height = img.height;
         if (width > MAX_WIDTH) {
@@ -191,13 +187,18 @@ export const repairCollection = async (onProgress?: (msg: string) => void) => {
         ctx?.drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
-      img.onerror = () => resolve(base64Str); // Keep original if error
+      img.onerror = () => resolve(base64Str);
     });
   };
 
-  for (const item of items) {
+  const db = await getDB();
+  
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     let changed = false;
     
+    if (onProgress) onProgress(`Checking item ${i + 1} of ${items.length}...`);
+
     // 1. Ensure ID
     if (!item.id) {
       item.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -216,24 +217,32 @@ export const repairCollection = async (onProgress?: (msg: string) => void) => {
     if (!item.facts) { item.facts = []; changed = true; }
     
     // 4. Aggressive Image Resize (if image is huge)
-    // Base64 string length is roughly 1.33 * bytes. 
-    // If string > 500k, it's definitely too big for a mobile vault with many items.
-    if (item.image && item.image.length > 500000) {
+    if (item.image && item.image.length > 400000) {
       if (onProgress) onProgress(`Optimizing image for ${item.title}...`);
-      item.image = await resizeImage(item.image);
-      changed = true;
+      try {
+        item.image = await resizeImage(item.image);
+        changed = true;
+      } catch (e) {
+        console.error("Resize failed for", item.title, e);
+      }
     }
     
     if (changed) {
-      store.put(item);
+      // Save each repaired item in its own transaction to prevent timeouts
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.put(item);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
       repairedCount++;
     }
   }
   
-  return new Promise<number>((resolve, reject) => {
-    tx.oncomplete = () => resolve(repairedCount);
-    tx.onerror = () => reject(tx.error);
-  });
+  return repairedCount;
 };
 
 export const clearCategory = async (category: string) => {
