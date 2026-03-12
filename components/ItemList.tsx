@@ -20,29 +20,34 @@ const ItemList: React.FC<ListProps> = ({ items, onSelectItem }) => {
   return (
     <div className="grid grid-cols-2 gap-4">
       {items.map((item) => {
-        if (!item) return null;
-        return (
-          <div 
-            key={item.id}
-            onClick={() => onSelectItem(item)}
-            className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 active:scale-95 transition-transform group"
-          >
-            <div className="aspect-[3/4] bg-slate-100 relative overflow-hidden">
-              {item.image ? (
-                <img src={item.image} className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex items-center justify-center h-full text-4xl opacity-10">🖼️</div>
-              )}
-              <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-black shadow-sm">
-                ${item.estimatedValue?.toLocaleString() || '0'}
+        try {
+          if (!item) return null;
+          return (
+            <div 
+              key={item.id}
+              onClick={() => onSelectItem(item)}
+              className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 active:scale-95 transition-transform group"
+            >
+              <div className="aspect-[3/4] bg-slate-100 relative overflow-hidden">
+                {item.image ? (
+                  <img src={item.image} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-4xl opacity-10">🖼️</div>
+                )}
+                <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-black shadow-sm">
+                  ${item.estimatedValue?.toLocaleString() || '0'}
+                </div>
+              </div>
+              <div className="p-3">
+                <h3 className="font-bold text-slate-900 text-sm truncate">{item.title || 'Untitled Item'}</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase truncate">{item.subTitle || 'No Details'}</p>
               </div>
             </div>
-            <div className="p-3">
-              <h3 className="font-bold text-slate-900 text-sm truncate">{item.title || 'Untitled Item'}</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase truncate">{item.subTitle || 'No Details'}</p>
-            </div>
-          </div>
-        );
+          );
+        } catch (e) {
+          console.error("Error rendering item:", item, e);
+          return null;
+        }
       })}
     </div>
   );

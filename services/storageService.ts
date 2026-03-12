@@ -151,3 +151,104 @@ export const importCollection = async (file: File): Promise<VaultItem[]> => {
     reader.readAsText(file);
   });
 };
+
+export const getStorageEstimate = async () => {
+  if (navigator.storage && navigator.storage.estimate) {
+    const estimate = await navigator.storage.estimate();
+    return {
+      usage: estimate.usage || 0,
+      quota: estimate.quota || 0,
+      percent: estimate.quota ? Math.round((estimate.usage || 0) / estimate.quota * 100) : 0
+    };
+  }
+  return null;
+};
+
+export const repairCollection = async (onProgress?: (msg: string) => void) => {
+  const items = await getAllItems();
+  const db = await getDB();
+  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const store = tx.objectStore(STORE_NAME);
+  
+  let repairedCount = 0;
+  
+  const resizeImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1000; // Aggressive resize for repair
+        let width = img.width;
+        let height = img.height;
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = () => resolve(base64Str); // Keep original if error
+    });
+  };
+
+  for (const item of items) {
+    let changed = false;
+    
+    // 1. Ensure ID
+    if (!item.id) {
+      item.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+      changed = true;
+    }
+    
+    // 2. Ensure Category
+    if (!item.category) {
+      item.category = 'other';
+      changed = true;
+    }
+    
+    // 3. Ensure required fields
+    if (item.title === undefined) { item.title = 'Untitled'; changed = true; }
+    if (item.estimatedValue === undefined) { item.estimatedValue = 0; changed = true; }
+    if (!item.facts) { item.facts = []; changed = true; }
+    
+    // 4. Aggressive Image Resize (if image is huge)
+    // Base64 string length is roughly 1.33 * bytes. 
+    // If string > 500k, it's definitely too big for a mobile vault with many items.
+    if (item.image && item.image.length > 500000) {
+      if (onProgress) onProgress(`Optimizing image for ${item.title}...`);
+      item.image = await resizeImage(item.image);
+      changed = true;
+    }
+    
+    if (changed) {
+      store.put(item);
+      repairedCount++;
+    }
+  }
+  
+  return new Promise<number>((resolve, reject) => {
+    tx.oncomplete = () => resolve(repairedCount);
+    tx.onerror = () => reject(tx.error);
+  });
+};
+
+export const clearCategory = async (category: string) => {
+  const items = await getAllItems();
+  const db = await getDB();
+  const tx = db.transaction(STORE_NAME, 'readwrite');
+  const store = tx.objectStore(STORE_NAME);
+  
+  const toDelete = items.filter(i => i.category === category);
+  for (const item of toDelete) {
+    store.delete(item.id);
+  }
+  
+  return new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+};

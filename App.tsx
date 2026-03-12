@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { VaultItem, VaultType, AppView, VAULT_CONFIG } from './types';
-import { getAllItems, saveItem, deleteItem } from './services/storageService';
+import { getAllItems, saveItem, deleteItem, getStorageEstimate } from './services/storageService';
 import VaultHeader from './components/VaultHeader';
 import VaultSwitcher from './components/VaultSwitcher';
 import Scanner from './components/Scanner';
@@ -40,8 +40,17 @@ const App: React.FC = () => {
 
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [storageWarning, setStorageWarning] = useState(false);
 
   useEffect(() => {
+    const checkStorage = async () => {
+      const estimate = await getStorageEstimate();
+      if (estimate && estimate.percent > 85) {
+        setStorageWarning(true);
+      }
+    };
+    checkStorage();
+
     const checkKey = () => {
       const key = process.env.API_KEY || process.env.GEMINI_API_KEY;
       if (!key || key === 'your_api_key_here' || key === '') {
@@ -90,8 +99,8 @@ const App: React.FC = () => {
       showMessage({
         title: "Save Failed",
         message: isQuotaError 
-          ? "Storage quota exceeded. Your device storage might be full or the image is too large."
-          : `Could not save item: ${error?.message || 'Unknown error'}. Please try again.`,
+          ? "Storage quota exceeded. Your vault is full. Go to the 'Data' tab and use 'Repair & Optimize' to free up space."
+          : `Could not save item: ${error?.message || 'Unknown error'}. If this persists, try the 'Repair' tool in the Data tab.`,
         type: 'error'
       });
     }
@@ -148,47 +157,61 @@ const App: React.FC = () => {
   }, [items, activeVault, showMessage]);
 
   const filteredItems = React.useMemo(() => {
-    return items
-      .filter(i => i.category === activeVault)
-      .filter(i => {
-        // AI Filter
-        if (aiFilteredIds !== null) {
-          return aiFilteredIds.includes(i.id);
-        }
+    try {
+      return items
+        .filter(i => i && i.category === activeVault)
+        .filter(i => {
+          try {
+            // AI Filter
+            if (aiFilteredIds !== null) {
+              return aiFilteredIds.includes(i.id);
+            }
 
-        // Keyword Search
-        const q = searchQuery.toLowerCase();
-        const matchesSearch = !searchQuery || 
-          (i.title?.toLowerCase()?.includes(q)) ||
-          (i.subTitle?.toLowerCase()?.includes(q)) ||
-          (i.brand?.toLowerCase()?.includes(q)) ||
-          (i.significance?.toLowerCase()?.includes(q));
+            // Keyword Search
+            const q = searchQuery.toLowerCase();
+            const matchesSearch = !searchQuery || 
+              (i.title?.toLowerCase()?.includes(q)) ||
+              (i.subTitle?.toLowerCase()?.includes(q)) ||
+              (i.brand?.toLowerCase()?.includes(q)) ||
+              (i.significance?.toLowerCase()?.includes(q));
 
-        // Manual Filters
-        const matchesYear = !filters.year || (i.year && i.year.includes(filters.year));
-        const matchesBrand = !filters.brand || (i.brand?.toLowerCase()?.includes(filters.brand.toLowerCase()));
-        const matchesRarity = !filters.rarity || (i.rarity?.toLowerCase()?.includes(filters.rarity.toLowerCase()));
-        const matchesCondition = !filters.condition || (i.condition?.toLowerCase()?.includes(filters.condition.toLowerCase()));
-        const matchesValue = (i.estimatedValue || 0) >= filters.minValue && (i.estimatedValue || 0) <= filters.maxValue;
+            // Manual Filters
+            const matchesYear = !filters.year || (i.year && String(i.year).includes(filters.year));
+            const matchesBrand = !filters.brand || (i.brand?.toLowerCase()?.includes(filters.brand.toLowerCase()));
+            const matchesRarity = !filters.rarity || (i.rarity?.toLowerCase()?.includes(filters.rarity.toLowerCase()));
+            const matchesCondition = !filters.condition || (i.condition?.toLowerCase()?.includes(filters.condition.toLowerCase()));
+            const matchesValue = (i.estimatedValue || 0) >= filters.minValue && (i.estimatedValue || 0) <= filters.maxValue;
 
-        return !!(matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue);
-      })
-      .sort((a, b) => {
-        if (filters.sortBy === 'value-high') {
-          return (b.estimatedValue || 0) - (a.estimatedValue || 0);
-        }
-        if (filters.sortBy === 'value-low') {
-          return (a.estimatedValue || 0) - (b.estimatedValue || 0);
-        }
-        // Default: newest (by dateAdded)
-        const dateA = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
-        const dateB = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
-        
-        const validA = isNaN(dateA) ? 0 : dateA;
-        const validB = isNaN(dateB) ? 0 : dateB;
-        
-        return validB - validA;
-      });
+            return !!(matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue);
+          } catch (e) {
+            console.error("Filter error for item:", i, e);
+            return false;
+          }
+        })
+        .sort((a, b) => {
+          try {
+            if (filters.sortBy === 'value-high') {
+              return (b.estimatedValue || 0) - (a.estimatedValue || 0);
+            }
+            if (filters.sortBy === 'value-low') {
+              return (a.estimatedValue || 0) - (b.estimatedValue || 0);
+            }
+            // Default: newest (by dateAdded)
+            const dateA = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
+            const dateB = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
+            
+            const validA = isNaN(dateA) ? 0 : dateA;
+            const validB = isNaN(dateB) ? 0 : dateB;
+            
+            return validB - validA;
+          } catch (e) {
+            return 0;
+          }
+        });
+    } catch (e) {
+      console.error("Global filter error:", e);
+      return [];
+    }
   }, [items, activeVault, aiFilteredIds, searchQuery, filters]);
 
   const totalValue = React.useMemo(() => 
@@ -225,6 +248,26 @@ const App: React.FC = () => {
         itemCount={filteredItems.length}
         onBack={() => setView('vault')} 
       />
+
+      {storageWarning && (
+        <div className="bg-red-50 border-b border-red-100 p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+              💾
+            </div>
+            <div>
+              <p className="text-xs font-black text-red-900 uppercase tracking-tight">Storage Almost Full</p>
+              <p className="text-[10px] text-red-700 font-bold">Your vault is reaching its capacity. Use the Repair tool in Data tab.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setView('reports')}
+            className="px-3 py-1.5 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-sm active:scale-95 transition-all"
+          >
+            Fix Now
+          </button>
+        </div>
+      )}
 
       {apiKeyMissing && (
         <div className="bg-amber-50 border-b border-amber-100 p-4 flex items-center justify-between">

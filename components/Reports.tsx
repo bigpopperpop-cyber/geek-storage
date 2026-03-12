@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { VaultItem, VAULT_CONFIG } from '../types';
 import { getCollectionInsights } from '../services/geminiService';
-import { exportCollection, exportToExcel, importCollection } from '../services/storageService';
-import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck, Share2, Printer, MessageSquare, FileSpreadsheet } from 'lucide-react';
+import { exportCollection, exportToExcel, importCollection, getStorageEstimate, repairCollection, clearCategory } from '../services/storageService';
+import { Sparkles, TrendingUp, PieChart as PieChartIcon, BarChart3, Download, Upload, ShieldCheck, Share2, Printer, MessageSquare, FileSpreadsheet, Wrench, Trash2, HardDrive } from 'lucide-react';
 import { useUI } from '../context/UIContext';
+import ConfirmModal from './ConfirmModal';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, Tooltip, 
@@ -18,14 +19,15 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
   const [insights, setInsights] = useState<string[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [repairing, setRepairing] = useState(false);
+  const [repairStatus, setRepairStatus] = useState('');
+  const [storageInfo, setStorageInfo] = useState<{ usage: number, quota: number, percent: number } | null>(null);
   const [lastInsightCount, setLastInsightCount] = useState(-1);
+  const [clearConfirm, setClearConfirm] = useState<keyof typeof VAULT_CONFIG | null>(null);
 
   useEffect(() => {
-    // Only load insights if we haven't loaded them for this collection size yet
-    if (items.length > 0 && items.length !== lastInsightCount && insights.length === 0) {
-      // We don't auto-load anymore to save API quota
-    }
-  }, [items, lastInsightCount, insights.length]);
+    getStorageEstimate().then(setStorageInfo);
+  }, [items]);
 
   const fetchInsights = async () => {
     if (items.length === 0) return;
@@ -142,6 +144,53 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
     const shareUrl = window.location.href;
     const summary = `My ${items.length} item collection is valued at $${totalValue.toLocaleString()}! Check out Vault AI: ${shareUrl}`;
     window.location.href = `sms:?body=${encodeURIComponent(summary)}`;
+  };
+  
+  const handleRepair = async () => {
+    if (repairing) return;
+    setRepairing(true);
+    setRepairStatus('Starting repair...');
+    try {
+      const count = await repairCollection((msg) => setRepairStatus(msg));
+      showMessage({
+        title: "Repair Complete",
+        message: `Successfully optimized ${count} items. Bad data has been cleaned and large images compressed.`,
+        type: 'success'
+      });
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      showMessage({
+        title: "Repair Failed",
+        message: err.message || "Unknown error during repair",
+        type: 'error'
+      });
+    } finally {
+      setRepairing(false);
+      setRepairStatus('');
+    }
+  };
+
+  const handleClearCategory = async () => {
+    if (!clearConfirm) return;
+    const cat = clearConfirm;
+    const label = VAULT_CONFIG[cat].label;
+
+    try {
+      await clearCategory(cat);
+      showMessage({
+        title: "Vault Cleared",
+        message: `All items in the ${label} vault have been removed.`,
+        type: 'success'
+      });
+      setClearConfirm(null);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      showMessage({
+        title: "Clear Failed",
+        message: err.message || "Unknown error",
+        type: 'error'
+      });
+    }
   };
 
   const handlePrint = () => {
@@ -420,6 +469,79 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
               Export your collection as JSON for backup or Excel for spreadsheet analysis.
             </p>
           </div>
+
+          {/* Advanced Tools */}
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Wrench className="w-4 h-4 text-slate-400" />
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Advanced Tools</h3>
+            </div>
+
+            {storageInfo && (
+              <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="w-3 h-3 text-slate-400" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Storage Usage</span>
+                  </div>
+                  <span className={`text-[10px] font-black uppercase ${storageInfo.percent > 80 ? 'text-red-500' : 'text-slate-900'}`}>
+                    {storageInfo.percent}% Full
+                  </span>
+                </div>
+                <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-500 ${storageInfo.percent > 80 ? 'bg-red-500' : 'bg-indigo-500'}`}
+                    style={{ width: `${storageInfo.percent}%` }}
+                  />
+                </div>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">
+                  Using {(storageInfo.usage / (1024 * 1024)).toFixed(1)}MB of {(storageInfo.quota / (1024 * 1024)).toFixed(0)}MB
+                </p>
+              </div>
+            )}
+
+            <button 
+              onClick={handleRepair}
+              disabled={repairing}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100 transition-colors group disabled:opacity-50"
+            >
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                <Wrench className={`w-5 h-5 ${repairing ? 'animate-spin text-indigo-600' : 'text-indigo-400'}`} />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-black text-indigo-900 uppercase tracking-widest">
+                  {repairing ? 'Repairing...' : 'Repair & Optimize'}
+                </p>
+                <p className="text-[9px] text-indigo-600 font-bold uppercase tracking-tight">
+                  {repairing ? repairStatus : 'Fix bad data & compress large images'}
+                </p>
+              </div>
+            </button>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Clear Vaults</p>
+              <div className="grid grid-cols-2 gap-2">
+                {CATEGORIES.map(cat => {
+                  const count = items.filter(i => i.category === cat).length;
+                  if (count === 0) return null;
+                  return (
+                    <button 
+                      key={cat}
+                      onClick={() => setClearConfirm(cat)}
+                      className="flex items-center justify-between p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors group"
+                    >
+                      <span className="text-[9px] font-black text-red-900 uppercase tracking-widest">{VAULT_CONFIG[cat].label}</span>
+                      <Trash2 className="w-3 h-3 text-red-300 group-hover:text-red-500 transition-colors" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-center leading-relaxed">
+              Use these tools if the app feels slow or if a specific vault is stuck.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="bg-white p-12 rounded-[2.5rem] border border-dashed border-slate-200 text-center space-y-6">
@@ -446,6 +568,16 @@ export default function Reports({ items, onRefresh }: { items: VaultItem[], onRe
           </div>
         </div>
       )}
+
+      <ConfirmModal 
+        isOpen={!!clearConfirm}
+        title={`Clear ${clearConfirm ? VAULT_CONFIG[clearConfirm].label : ''} Vault?`}
+        message={`Are you absolutely sure? This will PERMANENTLY delete all ${clearConfirm ? items.filter(i => i.category === clearConfirm).length : 0} items in this vault. This cannot be undone.`}
+        confirmLabel="Clear Vault"
+        isDanger={true}
+        onConfirm={handleClearCategory}
+        onCancel={() => setClearConfirm(null)}
+      />
     </div>
   );
 }
