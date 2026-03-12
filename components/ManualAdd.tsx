@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { VaultType, VaultItem, COLLECTIBLE_CONDITIONS } from '../types';
+import { VaultType, VaultItem, COLLECTIBLE_CONDITIONS, COMIC_CONDITIONS } from '../types';
 import { ArrowLeft, Save, Camera, X } from 'lucide-react';
 
 interface ManualAddProps {
@@ -10,6 +10,7 @@ interface ManualAddProps {
 }
 
 const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) => {
+  const conditions = category === 'comics' ? COMIC_CONDITIONS : COLLECTIBLE_CONDITIONS;
   const [formData, setFormData] = useState({
     title: '',
     year: '',
@@ -164,7 +165,7 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none appearance-none"
             >
               <option value="">Select Condition</option>
-              {COLLECTIBLE_CONDITIONS.map(c => (
+              {conditions.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

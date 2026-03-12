@@ -135,7 +135,7 @@ export const identifyItemFromImage = async (base64Image: string, category: Vault
           cardNumber: { type: Type.STRING },
           uncertaintyReason: { type: Type.STRING, description: "Explain any uncertainty in identification" }
         },
-        required: ["name", "year", "brand", "cardNumber"]
+        required: ["name", "year", "brand"]
       };
 
       const result = await ai.models.generateContent({

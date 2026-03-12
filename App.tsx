@@ -116,20 +116,21 @@ const App: React.FC = () => {
       }
 
       // Keyword Search
+      const q = searchQuery.toLowerCase();
       const matchesSearch = !searchQuery || 
-        (i.title?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (i.subTitle?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (i.brand?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (i.significance?.toLowerCase().includes(searchQuery.toLowerCase()));
+        (i.title?.toLowerCase()?.includes(q)) ||
+        (i.subTitle?.toLowerCase()?.includes(q)) ||
+        (i.brand?.toLowerCase()?.includes(q)) ||
+        (i.significance?.toLowerCase()?.includes(q));
 
       // Manual Filters
       const matchesYear = !filters.year || (i.year && i.year.includes(filters.year));
-      const matchesBrand = !filters.brand || (i.brand && i.brand.toLowerCase().includes(filters.brand.toLowerCase()));
-      const matchesRarity = !filters.rarity || (i.rarity && i.rarity.toLowerCase().includes(filters.rarity.toLowerCase()));
-      const matchesCondition = !filters.condition || (i.condition && i.condition.toLowerCase().includes(filters.condition.toLowerCase()));
+      const matchesBrand = !filters.brand || (i.brand?.toLowerCase()?.includes(filters.brand.toLowerCase()));
+      const matchesRarity = !filters.rarity || (i.rarity?.toLowerCase()?.includes(filters.rarity.toLowerCase()));
+      const matchesCondition = !filters.condition || (i.condition?.toLowerCase()?.includes(filters.condition.toLowerCase()));
       const matchesValue = (i.estimatedValue || 0) >= filters.minValue && (i.estimatedValue || 0) <= filters.maxValue;
 
-      return matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue;
+      return !!(matchesSearch && matchesYear && matchesBrand && matchesRarity && matchesCondition && matchesValue);
     })
     .sort((a, b) => {
       if (filters.sortBy === 'value-high') {

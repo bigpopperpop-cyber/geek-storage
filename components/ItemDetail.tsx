@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { VaultItem, VAULT_CONFIG, COLLECTIBLE_CONDITIONS } from '../types';
+import { VaultItem, VAULT_CONFIG, COLLECTIBLE_CONDITIONS, COMIC_CONDITIONS } from '../types';
 import { reEvaluateItem } from '../services/geminiService';
 import { Camera } from 'lucide-react';
 import { useUI } from '../context/UIContext';
@@ -22,6 +22,7 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const theme = VAULT_CONFIG[item.category];
+  const conditions = item.category === 'comics' ? COMIC_CONDITIONS : COLLECTIBLE_CONDITIONS;
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -174,10 +175,10 @@ const ItemDetail: React.FC<DetailProps> = ({ item, onUpdate, onDelete, onBack })
                 className="flex-grow bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 appearance-none"
                 autoFocus
               >
-                {COLLECTIBLE_CONDITIONS.map(c => (
+                {conditions.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-                {!COLLECTIBLE_CONDITIONS.includes(tempCondition) && tempCondition && (
+                {!conditions.includes(tempCondition) && tempCondition && (
                   <option value={tempCondition}>{tempCondition}</option>
                 )}
               </select>
