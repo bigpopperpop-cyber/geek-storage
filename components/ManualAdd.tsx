@@ -48,7 +48,42 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
     notes: ''
   });
   const [image, setImage] = useState<string | null>(null);
+  const [jsonInput, setJsonInput] = useState('');
+  const [showJsonInput, setShowJsonInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleJsonExtract = () => {
+    try {
+      const data = JSON.parse(jsonInput);
+      setFormData({
+        title: data.title || data.name || formData.title,
+        year: data.year?.toString() || formData.year,
+        brand: data.brand || data.manufacturer || formData.brand,
+        cardNumber: data.cardNumber?.toString() || data.issueNumber?.toString() || formData.cardNumber,
+        condition: data.condition || formData.condition,
+        rarity: data.rarity || formData.rarity,
+        estimatedValue: data.estimatedValue?.toString() || data.value?.toString() || formData.estimatedValue,
+        significance: data.significance || data.attributes || formData.significance,
+        notes: data.notes || data.description || formData.notes
+      });
+      if (data.image && typeof data.image === 'string' && data.image.startsWith('data:image')) {
+        setImage(data.image);
+      }
+      setShowJsonInput(false);
+      setJsonInput('');
+      showMessage({
+        title: "Data Extracted",
+        message: "Form fields have been populated from JSON.",
+        type: 'success'
+      });
+    } catch (err) {
+      showMessage({
+        title: "Invalid JSON",
+        message: "Could not parse the pasted JSON. Please check the format.",
+        type: 'error'
+      });
+    }
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -118,12 +153,38 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
 
   return (
     <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 flex flex-col gap-6 py-10 animate-in slide-in-from-bottom-10 duration-500">
-      <div className="flex items-center gap-4">
-        <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-          <ArrowLeft className="w-5 h-5 text-slate-400" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+            <ArrowLeft className="w-5 h-5 text-slate-400" />
+          </button>
+          <h2 className="text-2xl font-black text-slate-900">Manual Entry</h2>
+        </div>
+        <button 
+          onClick={() => setShowJsonInput(!showJsonInput)}
+          className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {showJsonInput ? 'Cancel JSON' : 'Paste JSON'}
         </button>
-        <h2 className="text-2xl font-black text-slate-900">Manual Entry</h2>
       </div>
+
+      {showJsonInput && (
+        <div className="space-y-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 animate-in fade-in slide-in-from-top-2 duration-300">
+          <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Paste JSON Data</label>
+          <textarea
+            value={jsonInput}
+            onChange={(e) => setJsonInput(e.target.value)}
+            placeholder='{ "title": "1996 Topps Kobe", "value": 500, ... }'
+            className="w-full h-32 bg-white border border-indigo-200 rounded-xl px-4 py-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+          <button
+            onClick={handleJsonExtract}
+            className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-md active:scale-95 transition-all"
+          >
+            Extract Data
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Image Upload Section */}
@@ -237,6 +298,16 @@ const ManualAdd: React.FC<ManualAddProps> = ({ category, onCancel, onResult }) =
             onChange={(e) => setFormData({ ...formData, significance: e.target.value })}
             placeholder="e.g. Rookie Card, Short Print"
             className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Notes / Description</label>
+          <textarea
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            placeholder="Any additional details..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none h-24 resize-none"
           />
         </div>
 
