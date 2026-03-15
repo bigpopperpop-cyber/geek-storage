@@ -9,9 +9,10 @@ interface HeaderProps {
   totalValue: number;
   itemCount: number;
   onBack: () => void;
+  onShare?: () => void;
 }
 
-const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, itemCount, onBack }) => {
+const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, itemCount, onBack, onShare }) => {
   const { showMessage } = useUI();
   const config = VAULT_CONFIG[activeVault] || VAULT_CONFIG.other;
 
@@ -64,14 +65,27 @@ const VaultHeader: React.FC<HeaderProps> = ({ view, activeVault, totalValue, ite
         </div>
         
         {view !== 'vault' && (
-          <button 
-            onClick={onBack}
-            className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex gap-2">
+            {view === 'treasure' && onShare && (
+              <button 
+                onClick={onShare}
+                className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
+                title="Share Treasure Box"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </button>
+            )}
+            <button 
+              onClick={onBack}
+              className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         )}
       </div>
     </header>

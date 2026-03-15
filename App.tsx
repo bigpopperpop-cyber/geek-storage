@@ -129,6 +129,52 @@ const App: React.FC = () => {
     }
   }, [selectedItem, showMessage]);
 
+  const handleShareTreasure = React.useCallback(async () => {
+    const treasureItems = items.filter(i => i.isTreasure);
+    if (treasureItems.length === 0) {
+      showMessage({
+        title: "Empty Treasure Box",
+        message: "Add some items to your Treasure Box before sharing!",
+        type: 'info'
+      });
+      return;
+    }
+
+    const totalTreasureValue = treasureItems.reduce((acc, curr) => acc + (curr.estimatedValue || 0), 0);
+    const itemSummary = treasureItems
+      .map(i => `• ${i.title} (${i.year}) - $${(i.estimatedValue || 0).toLocaleString()}`)
+      .join('\n');
+    
+    const summary = `💎 MY TREASURE BOX SUMMARY 💎\n\nTotal Value: $${totalTreasureValue.toLocaleString()}\nItems: ${treasureItems.length}\n\n${itemSummary}\n\nCheck out my collection on Vault AI!`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'My Vault AI Treasure Box',
+          text: summary,
+          url: window.location.href
+        });
+      } catch (err) {
+        console.error('Share error:', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(summary);
+        showMessage({
+          title: "Copied to Clipboard",
+          message: "Treasure Box summary copied! You can now paste it anywhere.",
+          type: 'success'
+        });
+      } catch (err) {
+        showMessage({
+          title: "Copy Failed",
+          message: "Failed to copy treasure list.",
+          type: 'error'
+        });
+      }
+    }
+  }, [items, showMessage]);
+
   const handleDelete = React.useCallback(async (id: string) => {
     try {
       await deleteItem(id);
@@ -274,6 +320,7 @@ const App: React.FC = () => {
         totalValue={totalValue} 
         itemCount={filteredItems.length}
         onBack={() => setView('vault')} 
+        onShare={handleShareTreasure}
       />
 
       {storageWarning && (
